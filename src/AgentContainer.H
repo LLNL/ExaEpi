@@ -17,8 +17,6 @@
 #include <AMReX_iMultiFab.H>
 #include <AMReX_Vector.H>
 
-#include <AMReX_Print.H>
-
 #include "AgentDefinitions.H"
 #include "DemographicData.H"
 #include "DiseaseParm.H"
@@ -80,8 +78,8 @@ public:
           student_counts(a_ba, a_dmap, SchoolType::total_school_type, 0)
     {
         BL_PROFILE("AgentContainer::AgentContainer");
-        AMREX_ASSERT(m_num_diseases < ExaEpi::max_num_diseases);
         m_num_diseases = a_num_diseases;
+        AMREX_ASSERT(m_num_diseases < ExaEpi::max_num_diseases);
         m_disease_names = a_disease_names;
 
         student_counts.setVal(0);  // Initialize the MultiFab to zero
@@ -265,10 +263,6 @@ public:
     void moveAgentsToWork ();
 
     void moveAgentsToHome ();
-
-    void print_var (); // sanity check;
-
-
 
     /*! \brief Return bin pointer at a given mfi, tile and model name */
     inline amrex::DenseBins<PType>* getBins( const std::pair<int,int>& a_idx,

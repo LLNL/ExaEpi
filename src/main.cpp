@@ -113,29 +113,6 @@ void runAgent ()
 
     Geometry geom = ExaEpi::Utils::get_geometry(demo, params);
 
-    // ------------------------------------------------------------------------
-    // Obtain the domain size (physical size of the domain)
-    const amrex::RealBox& real_box = geom.ProbDomain();
-    amrex::Real domain_size[AMREX_SPACEDIM];
-    const amrex::Real* dx = geom.CellSize(); // Obtain the grid spacing
-
-    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        domain_size[dir] = real_box.length(dir);
-    }
-    // Print domain size and grid spacing
-    amrex::Print() << "Domain Size: ";
-    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        amrex::Print() << domain_size[dir] << " ";
-    }
-    amrex::Print() << "\n";
-
-    amrex::Print() << "Grid Spacing (dx): ";
-    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        amrex::Print() << dx[dir] << " ";
-    }
-    amrex::Print() << "\n";
-    // ------------------------------------------------------------------------
-
     BoxArray ba;
     DistributionMapping dm;
     ba.define(geom.Domain());
@@ -145,26 +122,6 @@ void runAgent ()
     amrex::Print() << "Base domain is: " << geom.Domain() << "\n";
     amrex::Print() << "Max grid size is: " << params.max_grid_size << "\n";
     amrex::Print() << "Number of boxes is: " << ba.size() << " over " << ParallelDescriptor::NProcs() << " ranks. \n";
-
-    // ------------------------------------------------------------------------
-    // Print the number of boxes and their sizes
-    amrex::Print() << "Number of boxes: " << ba.size() << "\n";
-    for (int i = 0; i < ba.size(); ++i) {
-        amrex::Print() << "Box " << i << ": " << ba[i] << "\n";
-    }
-
-    // Print tile sizes if tiling is used
-    if (ba.ixType().cellCentered()) {
-        amrex::Print() << "Tiling is used.\n";
-        // Assuming tiles are defined, print their sizes (example only)
-        for (amrex::MFIter mfi(ba, dm, true); mfi.isValid(); ++mfi) {
-            amrex::Box tilebox = mfi.tilebox();
-            amrex::Print() << "Tile size: " << tilebox << "\n";
-        }
-    } else {
-        amrex::Print() << "Tiling is not used.\n";
-    }
-    // ------------------------------------------------------------------------
 
     // The default output filename is:
     // output.dat for a single disease
@@ -424,8 +381,6 @@ void runAgent ()
             //            pc.Redistribute();
 
             cur_time += 1.0_rt; // time step is one day
-
-            //pc.print_var();
         }
     }
 
@@ -470,4 +425,3 @@ void runAgent ()
                                     params.nsteps);
     }
 }
-
