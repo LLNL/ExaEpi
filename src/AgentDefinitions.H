@@ -77,7 +77,7 @@ struct SchoolType
         elem_3,      /*!< Elementary School Neighbordhood 1 */
         elem_4,      /*!< Elementary School Neighbordhood 2 */
         day_care,     /*!< Day care + Playground */
-        total_school_type
+        nattribs
     };
 };
 

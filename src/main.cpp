@@ -177,6 +177,9 @@ void runAgent ()
     iMultiFab comm_mf(ba, dm, 1, 0);
 
     amrex::Vector< std::unique_ptr<MultiFab> > disease_stats;
+    iMultiFab school_stats(ba, dm, 18, 0);
+    school_stats.setVal(0);
+
     disease_stats.resize(params.num_diseases);
     for (int d = 0; d < params.num_diseases; d++) {
         disease_stats[d] = std::make_unique<MultiFab>(ba, dm, 4, 0);
@@ -260,6 +263,10 @@ void runAgent ()
 
             // Update agents' disease status
             pc.updateStatus(disease_stats);
+            if (params.school_dismissal){
+                pc.updateSchoolInfection(demo, unit_mf, comm_mf, school_stats);
+                pc.printSchoolInfection(unit_mf, school_stats);
+            }
 
             for (int d = 0; d < params.num_diseases; d++) {
                 auto counts = pc.getTotals(d);

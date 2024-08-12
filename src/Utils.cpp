@@ -104,6 +104,7 @@ void ExaEpi::Utils::get_test_params (   TestParams& params,         /*!< Test pa
 
     pp.query("shelter_start",  params.shelter_start);
     pp.query("shelter_length", params.shelter_length);
+    pp.query("school_dismissal", params.school_dismissal);
 
     Long seed = 0;
     bool reset_seed = pp.query("seed", seed);

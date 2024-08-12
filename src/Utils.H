@@ -72,6 +72,7 @@ struct TestParams
 
     int shelter_start = -1;
     int shelter_length = 0;
+    int school_dismissal = 0;
 };
 
 /**

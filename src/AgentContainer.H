@@ -75,7 +75,8 @@ public:
                                     0,
                                     RealIdx::nattribs,
                                     IntIdx::nattribs> (a_geom, a_dmap, a_ba),
-          student_counts(a_ba, a_dmap, SchoolType::total_school_type, 0)
+          reset_school_infection(a_ba, a_dmap, SchoolType::nattribs, 0),
+          student_counts(a_ba, a_dmap, SchoolType::nattribs, 0)
     {
         BL_PROFILE("AgentContainer::AgentContainer");
         m_num_diseases = a_num_diseases;
@@ -83,15 +84,18 @@ public:
         m_disease_names = a_disease_names;
 
         student_counts.setVal(0);  // Initialize the MultiFab to zero
+        reset_school_infection.setVal(0);
 
         add_attributes();
 
         {
             amrex::ParmParse pp("agent");
+            pp.queryarr("student_teacher_ratios", student_teacher_ratios);
             pp.query("symptomatic_withdraw", m_symptomatic_withdraw);
             pp.query("shelter_compliance", m_shelter_compliance);
             pp.query("symptomatic_withdraw_compliance", m_symptomatic_withdraw_compliance);
-            pp.queryarr("student_teacher_ratios", student_teacher_ratios);
+            pp.query("sc_infection_threshold", m_sc_infection_threshold);
+            pp.query("sc_period", m_sc_period);
 
         }
 
@@ -220,6 +224,8 @@ public:
             std::memcpy(d_parm[d], h_parm[d], sizeof(DiseaseParm));
 #endif
         }
+
+        m_sc_period = d_parm[0]->incubation_length_mean + d_parm[0]->infectious_length_mean ;
     }
 
     void initAgentsDemo (amrex::iMultiFab& /*num_residents*/,
@@ -249,6 +255,10 @@ public:
     void moveRandomTravel ();
 
     void updateStatus (MFPtrVec& ds);
+
+    void updateSchoolInfection(DemographicData& demo, iMultiFab& unit_mf,iMultiFab& comm_mf, amrex::iMultiFab& ss);
+
+    // void updateSchoolStatus(amrex::iMultiFab& ss);
 
     void infectAgents ();
 
@@ -321,6 +331,9 @@ public:
         return comm_teacher_counts_total_d;
     }
 
+    void printSchoolInfection(iMultiFab& unit_mf, amrex::iMultiFab& a_school_stats) const;
+    //void printWorkersAndTeachers() const;
+
 protected:
 
     amrex::iMultiFab student_counts;
@@ -337,6 +350,10 @@ protected:
     std::vector<std::string> m_disease_names; /*!< names of the diseases */
 
     int m_symptomatic_withdraw = 1;
+
+    amrex::Real m_sc_period; /* how long school will be closed for */;
+    amrex::Real m_sc_infection_threshold = 0.20 ; /* prop total infected students to trigger school dismissal flag*/;
+    amrex::iMultiFab reset_school_infection;
 
     amrex::Real m_shelter_compliance = 0.95_rt;
     amrex::Real m_symptomatic_withdraw_compliance = 0.95_rt;
