@@ -218,7 +218,7 @@ namespace Initialization
                         workgroup_ptr[ip] = 1 + amrex::Random_int(num_workgroup, engine);
                     }
                     else {
-                        workplace_ptr[ip] = 1;
+                        workgroup_ptr[ip] = 1;
                     }
                 }
             });
@@ -266,6 +266,7 @@ namespace Initialization
             auto& soa = agents_tile.GetStructOfArrays();
             auto age_group_ptr = soa.GetIntData(IntIdx::age_group).data();
             auto workgroup_ptr = soa.GetIntData(IntIdx::workgroup).data();
+            auto workplace_ptr = soa.GetIntData(IntIdx::workplace).data();
             auto work_i_ptr = soa.GetIntData(IntIdx::work_i).data();
             auto work_j_ptr = soa.GetIntData(IntIdx::work_j).data();
             auto school_ptr = soa.GetIntData(IntIdx::school).data();
@@ -312,36 +313,51 @@ namespace Initialization
                             int choice = amrex::Random_int(total_available);
                             if (choice < available_slots[0]) {
                                 school_ptr[ip] = 3;  // elementary 3 school
-                                workgroup_ptr[ip] = 3 ;
+                                workplace_ptr[ip] = 3 ;
+                                workgroup_ptr[ip] = 1 ;
                                 elem3_teacher_counts_ptr[comm_to]++;
                             } else if (choice < available_slots[0] + available_slots[1]) {
                                 school_ptr[ip] = 4;  // elementary 4 school
-                                workgroup_ptr[ip] = 4 ;
+                                workplace_ptr[ip] = 4 ;
+                                workgroup_ptr[ip] = 1 ;
                                 elem4_teacher_counts_ptr[comm_to]++;
                             } else if (choice < available_slots[0] + available_slots[1] + available_slots[2]) {
                                 school_ptr[ip] = 2;  // middle school
-                                workgroup_ptr[ip] = 2 ;
+                                workplace_ptr[ip] = 2 ;
+                                workgroup_ptr[ip] = 1 ;
                                 middle_teacher_counts_ptr[comm_to]++;
                             } else if (choice < available_slots[0] + available_slots[1] + available_slots[2] + available_slots[3]) {
                                 school_ptr[ip] = 1;  // high school
+                                workplace_ptr[ip] = 1 ;
                                 workgroup_ptr[ip] = 1 ;
                                 high_teacher_counts_ptr[comm_to]++;
                             } else if (choice < total_available) {
                                 school_ptr[ip] = 5;  // day care
-                                workgroup_ptr[ip] = 5 ;
+                                workplace_ptr[ip] = 5 ;
+                                workgroup_ptr[ip] = 1 ;
                                 daycr_teacher_counts_ptr[comm_to]++;
                             }
                         }
                     }
                     else{
+                        constexpr int WP_size = 100;
                         constexpr int WG_size = 20;
-                        unsigned int number = (unsigned int) rint( ((Real) Ndaywork[to] - total_teacher_unit.data()[to] ) /
-                                 ((Real) WG_size * (Start[to+1] - Start[to])) );
 
-                        if (number) {
-                            workgroup_ptr[ip] = 6 + amrex::Random_int(number);
+                        unsigned int num_workplaces = (unsigned int) rint( ((Real) Ndaywork[to]) / ((Real) WP_size * (Start[to+1] - Start[to])) );
+
+                        if (num_workplaces > 0) {
+                            workplace_ptr[ip] = 6 + amrex::Random_int(num_workplaces);
+                        } else {
+                            workplace_ptr[ip] = 6;
                         }
 
+                        unsigned int num_workgroup = (unsigned int) rint( ((Real) Ndaywork[to]) / ((Real) num_workplaces * WG_size * (Start[to+1] - Start[to])) );
+
+                        if (num_workgroup) {
+                            workgroup_ptr[ip] = 1 + amrex::Random_int(num_workgroup);
+                        } else {
+                            workgroup_ptr[ip] = 1;
+                        }
                     }
                 }
 
