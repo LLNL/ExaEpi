@@ -30,7 +30,7 @@ static void binaryInteractionWork ( const int a_i, /*!< Index of infectious agen
     auto work_i_ptr = a_ptd.m_idata[IntIdx::work_i];
     auto workgroup_ptr = a_ptd.m_idata[IntIdx::workgroup];
     auto withdrawn_ptr = a_ptd.m_idata[IntIdx::withdrawn];
-    auto school_ptr = soa.GetIntData(IntIdx::school).data();
+    auto school_ptr = a_ptd.m_idata[IntIdx::school];
 
     if (withdrawn_ptr[a_i] || withdrawn_ptr[a_j]) { return; }
     if (school_ptr[a_i] < 0 || school_ptr[a_j] < 0) { return; } // school closed -- teacher at home
