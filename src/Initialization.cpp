@@ -147,6 +147,7 @@ namespace Initialization
             auto work_j_ptr = soa.GetIntData(IntIdx::work_j).data();
             auto workgroup_ptr = soa.GetIntData(IntIdx::workgroup).data();
             auto workplace_ptr = soa.GetIntData(IntIdx::workplace).data();
+            auto work_nborhood_ptr = soa.GetIntData(IntIdx::work_nborhood).data();
             auto np = soa.numParticles();
 
             auto unit_arr = unit_mf[mfi].array();
@@ -208,7 +209,7 @@ namespace Initialization
                     } else {
                         workplace_ptr[ip] = 1;
                     }
-
+                    work_nborhood_ptr[ip] = workplace_ptr[ip] % 4; // each workplace is assigned to a neighborhood as well
 
                     // max numbers of workgroup needed within a workplace
                     // = total number of workers in a unit / num of comm / num of workplace / WG_size
@@ -270,6 +271,7 @@ namespace Initialization
             auto work_i_ptr = soa.GetIntData(IntIdx::work_i).data();
             auto work_j_ptr = soa.GetIntData(IntIdx::work_j).data();
             auto school_ptr = soa.GetIntData(IntIdx::school).data();
+            auto work_nborhood_ptr = soa.GetIntData(IntIdx::work_nborhood).data();
 
             auto Ndaywork = demo.Ndaywork_d.data();
             auto Start = demo.Start_d.data();
@@ -312,29 +314,34 @@ namespace Initialization
                         {
                             int choice = amrex::Random_int(total_available);
                             if (choice < available_slots[0]) {
-                                school_ptr[ip] = 3;  // elementary 3 school
+                                school_ptr[ip] = 3;  // elementary school for kids in Neighbordhood 1 & 2
                                 workplace_ptr[ip] = 3 ;
                                 workgroup_ptr[ip] = 1 ;
+                                work_nborhood_ptr[ip] = 1; // assuming the first elementary school is located in Neighbordhood 1
                                 elem3_teacher_counts_ptr[comm_to]++;
                             } else if (choice < available_slots[0] + available_slots[1]) {
-                                school_ptr[ip] = 4;  // elementary 4 school
+                                school_ptr[ip] = 4;  // elementary school for kids in Neighbordhood 3 & 4
                                 workplace_ptr[ip] = 4 ;
                                 workgroup_ptr[ip] = 1 ;
+                                work_nborhood_ptr[ip] = 3; // assuming the first elementary school is located in Neighbordhood 3
                                 elem4_teacher_counts_ptr[comm_to]++;
                             } else if (choice < available_slots[0] + available_slots[1] + available_slots[2]) {
-                                school_ptr[ip] = 2;  // middle school
+                                school_ptr[ip] = 2;  // middle school for kids in all Neighbordhoods (1 through 4)
                                 workplace_ptr[ip] = 2 ;
                                 workgroup_ptr[ip] = 1 ;
+                                work_nborhood_ptr[ip] = 2; // assuming the middle school is located in Neighbordhood 2
                                 middle_teacher_counts_ptr[comm_to]++;
                             } else if (choice < available_slots[0] + available_slots[1] + available_slots[2] + available_slots[3]) {
-                                school_ptr[ip] = 1;  // high school
+                                school_ptr[ip] = 1;  // high school for kids in all Neighbordhoods (1 through 4)
                                 workplace_ptr[ip] = 1 ;
                                 workgroup_ptr[ip] = 1 ;
+                                work_nborhood_ptr[ip] = 4; // assuming the high school is located in Neighbordhood 4
                                 high_teacher_counts_ptr[comm_to]++;
                             } else if (choice < total_available) {
                                 school_ptr[ip] = 5;  // day care
                                 workplace_ptr[ip] = 5 ;
                                 workgroup_ptr[ip] = 1 ;
+                                work_nborhood_ptr[ip] = 1; // deal with daycare/playgroups later
                                 daycr_teacher_counts_ptr[comm_to]++;
                             }
                         }
@@ -349,7 +356,7 @@ namespace Initialization
                             workplace_ptr[ip] = 6 + amrex::Random_int(num_workplaces);
                         } else {
                             workplace_ptr[ip] = 6;
-                        }
+                        work_nborhood_ptr[ip] = workplace_ptr[ip] % 4; // each workplace is assigned to a neighborhood as well
 
                         unsigned int num_workgroup = (unsigned int) rint( ((Real) Ndaywork[to]) / ((Real) num_workplaces * WG_size * (Start[to+1] - Start[to])) );
 
