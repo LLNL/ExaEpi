@@ -171,7 +171,7 @@ public:
 
     void updateStatus (MFPtrVec&);
 
-    void updateSchoolInfection(iMultiFab& unit_mf, amrex::iMultiFab& ss);
+    void updateSchoolInfection(DemographicData& demo, iMultiFab& unit_mf, iMultiFab& comm_mf, amrex::iMultiFab& ss);
 
     // void updateSchoolStatus(amrex::iMultiFab& ss);
 

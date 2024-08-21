@@ -1625,13 +1625,13 @@ void AgentContainer::printSchoolInfection(iMultiFab& unit_mf, iMultiFab& a_schoo
                 auto& soa = ptile.GetStructOfArrays();
                 const auto np = ptile.numParticles();
 
-                auto timer_ptr = soa.GetRealData(RealIdx::treatment_timer).data();
                 auto age_group_ptr = soa.GetIntData(IntIdx::age_group).data();
                 auto home_i_ptr = soa.GetIntData(IntIdx::home_i).data();
                 auto home_j_ptr = soa.GetIntData(IntIdx::home_j).data();
                 auto school_ptr = soa.GetIntData(IntIdx::school).data();
                 const auto& student_counts_arr = student_counts[mfi].array();
                 auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
+                auto hosp_i_ptr = soa.GetIntData(IntIdx::hosp_i).data();
                 auto ss_arr = a_school_stats[mfi].array();
                 const amrex::Box& bx = mfi.tilebox();
                 auto unit_arr = unit_mf[mfi].array();
@@ -1746,4 +1746,3 @@ void AgentContainer::printSchoolInfection(iMultiFab& unit_mf, iMultiFab& a_schoo
     Print() << "Total infection count from Simulation: " << total_infec_sim << std::endl;
     Print() << "Total student count from Student mf: " << total_std_fab << std::endl;
 }
-
