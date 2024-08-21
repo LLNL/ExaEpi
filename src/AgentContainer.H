@@ -20,6 +20,8 @@
 #include "AgentDefinitions.H"
 #include "DemographicData.H"
 #include "DiseaseParm.H"
+#include "DiseaseStatus.H"
+#include "HospitalModel.H"
 #include "InteractionModelLibrary.H"
 
 /*! \brief Assigns school by taking a random number between 0 and 100, and using
@@ -79,6 +81,7 @@ public:
           student_counts(a_ba, a_dmap, SchoolType::nattribs, 0)
     {
         BL_PROFILE("AgentContainer::AgentContainer");
+
         m_num_diseases = a_num_diseases;
         AMREX_ASSERT(m_num_diseases < ExaEpi::max_num_diseases);
         m_disease_names = a_disease_names;
@@ -90,13 +93,12 @@ public:
 
         {
             amrex::ParmParse pp("agent");
-            pp.queryarr("student_teacher_ratios", student_teacher_ratios);
             pp.query("symptomatic_withdraw", m_symptomatic_withdraw);
             pp.query("shelter_compliance", m_shelter_compliance);
             pp.query("symptomatic_withdraw_compliance", m_symptomatic_withdraw_compliance);
+            pp.queryarr("student_teacher_ratios", student_teacher_ratios);
             pp.query("sc_infection_threshold", m_sc_infection_threshold);
             pp.query("sc_period", m_sc_period);
-
         }
 
         {
@@ -109,6 +111,9 @@ public:
             m_interactions[InteractionNames::work] = new InteractionModWork<PCType,PTileType,PTDType,PType>;
             m_interactions[InteractionNames::school] = new InteractionModSchool<PCType,PTileType,PTDType,PType>;
             m_interactions[InteractionNames::nborhood] = new InteractionModNborhood<PCType,PTileType,PTDType,PType>;
+            m_interactions[InteractionNames::random] = new InteractionModRandom<PCType,PTileType, PTDType, PType>;
+
+            m_hospital = std::make_unique<HospitalModel<PCType,PTileType,PTDType,PType>>();
         }
 
         h_parm.resize(m_num_diseases);
@@ -118,114 +123,20 @@ public:
             h_parm[d] = new DiseaseParm{};
             d_parm[d] = (DiseaseParm*)amrex::The_Arena()->alloc(sizeof(DiseaseParm));
 
-            {
-                std::string key = "contact";
-                amrex::ParmParse pp(key);
-                pp.query("pSC", h_parm[d]->pSC);
-                pp.query("pCO", h_parm[d]->pCO);
-                pp.query("pNH", h_parm[d]->pNH);
-                pp.query("pWO", h_parm[d]->pWO);
-                pp.query("pFA", h_parm[d]->pFA);
-                pp.query("pBAR", h_parm[d]->pBAR);
-            }
-
-            {
-                amrex::ParmParse pp("disease");
-                pp.query("nstrain", h_parm[d]->nstrain);
-                AMREX_ASSERT(h_parm[d]->nstrain <= 2);
-                pp.query("reinfect_prob", h_parm[d]->reinfect_prob);
-
-                amrex::Vector<amrex::Real> p_trans(h_parm[d]->nstrain);
-                amrex::Vector<amrex::Real> p_asymp(h_parm[d]->nstrain);
-                amrex::Vector<amrex::Real> reduced_inf(h_parm[d]->nstrain);
-
-                // set correct default
-                if (h_parm[d]->nstrain <= 2) {
-                    for (int i = 0; i < h_parm[d]->nstrain; i++) {
-                        p_trans[i] = h_parm[d]->p_trans[i];
-                        p_asymp[i] = h_parm[d]->p_asymp[i];
-                        reduced_inf[i] = h_parm[d]->reduced_inf[i];
-                    }
-                }
-
-                pp.queryarr("p_trans", p_trans, 0, h_parm[d]->nstrain);
-                pp.queryarr("p_asymp", p_asymp, 0, h_parm[d]->nstrain);
-                pp.queryarr("reduced_inf", reduced_inf, 0, h_parm[d]->nstrain);
-
-                pp.query("vac_eff", h_parm[d]->vac_eff);
-
-                for (int i = 0; i < h_parm[d]->nstrain; ++i) {
-                    h_parm[d]->p_trans[i] = p_trans[i];
-                    h_parm[d]->p_asymp[i] = p_asymp[i];
-                    h_parm[d]->reduced_inf[i] = reduced_inf[i];
-                }
-
-                pp.query("incubation_length_mean", h_parm[d]->incubation_length_mean);
-                pp.query("infectious_length_mean", h_parm[d]->infectious_length_mean);
-                pp.query("symptomdev_length_mean", h_parm[d]->symptomdev_length_mean);
-
-                pp.query("incubation_length_std", h_parm[d]->incubation_length_std);
-                pp.query("infectious_length_std", h_parm[d]->infectious_length_std);
-                pp.query("symptomdev_length_std", h_parm[d]->symptomdev_length_std);
-
-                pp.query("mean_immune_time", h_parm[d]->mean_immune_time);
-                pp.query("immune_time_spread", h_parm[d]->immune_time_spread);
-            }
-            {
-                std::string key = "disease_" + m_disease_names[d];
-                amrex::ParmParse pp(key);
-                pp.query("nstrain", h_parm[d]->nstrain);
-                AMREX_ASSERT(h_parm[d]->nstrain <= 2);
-                pp.query("reinfect_prob", h_parm[d]->reinfect_prob);
-
-                amrex::Vector<amrex::Real> p_trans(h_parm[d]->nstrain);
-                amrex::Vector<amrex::Real> p_asymp(h_parm[d]->nstrain);
-                amrex::Vector<amrex::Real> reduced_inf(h_parm[d]->nstrain);
-
-                // set correct default
-                for (int i = 0; i < std::min(p_trans.size(),Long(2)); i++) {
-                    p_trans[i] = h_parm[d]->p_trans[i];
-                }
-                for (int i = 0; i < std::min(p_asymp.size(),Long(2)); i++) {
-                    p_asymp[i] = h_parm[d]->p_asymp[i];
-                }
-                for (int i = 0; i < std::min(reduced_inf.size(),Long(2)); i++) {
-                    reduced_inf[i] = h_parm[d]->reduced_inf[i];
-                }
-
-                pp.queryarr("p_trans", p_trans, 0, h_parm[d]->nstrain);
-                pp.queryarr("p_asymp", p_asymp, 0, h_parm[d]->nstrain);
-                pp.queryarr("reduced_inf", reduced_inf, 0, h_parm[d]->nstrain);
-
-                pp.query("vac_eff", h_parm[d]->vac_eff);
-
-                for (int i = 0; i < h_parm[d]->nstrain; ++i) {
-                    h_parm[d]->p_trans[i] = p_trans[i];
-                    h_parm[d]->p_asymp[i] = p_asymp[i];
-                    h_parm[d]->reduced_inf[i] = reduced_inf[i];
-                }
-
-                pp.query("incubation_length_mean", h_parm[d]->incubation_length_mean);
-                pp.query("infectious_length_mean", h_parm[d]->infectious_length_mean);
-                pp.query("symptomdev_length_mean", h_parm[d]->symptomdev_length_mean);
-
-                pp.query("incubation_length_std", h_parm[d]->incubation_length_std);
-                pp.query("infectious_length_std", h_parm[d]->infectious_length_std);
-                pp.query("symptomdev_length_std", h_parm[d]->symptomdev_length_std);
-
-                pp.query("mean_immune_time", h_parm[d]->mean_immune_time);
-                pp.query("immune_time_spread", h_parm[d]->immune_time_spread);
-            }
-
+            h_parm[d]->readContact();
+            // first read inputs common to all diseases
+            h_parm[d]->readInputs("disease");
+            // now read any disease-specific input, if available
+            h_parm[d]->readInputs(std::string("disease_"+m_disease_names[d]));
             h_parm[d]->Initialize();
+
 #ifdef AMREX_USE_GPU
             amrex::Gpu::htod_memcpy(d_parm[d], h_parm[d], sizeof(DiseaseParm));
 #else
             std::memcpy(d_parm[d], h_parm[d], sizeof(DiseaseParm));
 #endif
         }
-
-        m_sc_period = d_parm[0]->incubation_length_mean + d_parm[0]->infectious_length_mean ;
+        m_sc_period = d_parm[0]->incubation_length_mean + d_parm[0]->infectious_length_mean; /* close school relative to mean recovery time*/
     }
 
     void initAgentsDemo (amrex::iMultiFab& /*num_residents*/,
@@ -250,13 +161,17 @@ public:
 
     void interactNight(amrex::MultiFab&);
 
+    void interactRandomTravel(amrex::MultiFab&, AgentContainer& on_travel_pc);
+
     void moveAgentsRandomWalk ();
 
-    void moveRandomTravel ();
+    void moveRandomTravel (const amrex::iMultiFab& unit_mf);
 
-    void updateStatus (MFPtrVec& ds);
+    void returnRandomTravel (const AgentContainer& on_travel_pc);
 
-    void updateSchoolInfection(DemographicData& demo, iMultiFab& unit_mf,iMultiFab& comm_mf, amrex::iMultiFab& ss);
+    void updateStatus (MFPtrVec&);
+
+    void updateSchoolInfection(iMultiFab& unit_mf, amrex::iMultiFab& ss);
 
     // void updateSchoolStatus(amrex::iMultiFab& ss);
 
@@ -287,6 +202,8 @@ public:
         } else if (a_mod_name == ExaEpi::InteractionNames::nborhood) {
             if (m_at_work) { return &m_bins_work[a_idx]; }
             else           { return &m_bins_home[a_idx]; }
+        } else if (a_mod_name == ExaEpi::InteractionNames::random) {
+            return &m_bins_random[a_idx];
         } else {
             amrex::Abort("Invalid a_mod_name!");
             return nullptr;
@@ -336,6 +253,16 @@ public:
         return comm_teacher_counts_total_d;
     }
 
+    /*! \brief return the symptomatic withdrawal status */
+    inline int symptomaticWithdraw() const {
+        return m_symptomatic_withdraw;
+    }
+
+    /*! \brief return the symptomatic withdrawal compliance */
+    inline amrex::Real symptomaticWithdrawCompliance() const {
+        return m_symptomatic_withdraw_compliance;
+    }
+
     void printSchoolInfection(iMultiFab& unit_mf, amrex::iMultiFab& a_school_stats) const;
     //void printWorkersAndTeachers() const;
 
@@ -354,14 +281,14 @@ protected:
     int m_num_diseases; /*!< Number of diseases */
     std::vector<std::string> m_disease_names; /*!< names of the diseases */
 
-    int m_symptomatic_withdraw = 1;
+    int m_symptomatic_withdraw = 1; /*!< whether symptomatic agents withdraw or not */
+
+    amrex::Real m_shelter_compliance = 0.95_rt; /*!< Shelter-in-place compliance rate */
+    amrex::Real m_symptomatic_withdraw_compliance = 0.95_rt; /*!< Symptomatic withdrawal compliance rate */
 
     amrex::Real m_sc_period; /* how long school will be closed for */;
     amrex::Real m_sc_infection_threshold = 0.20 ; /* prop total infected students to trigger school dismissal flag*/;
     amrex::iMultiFab reset_school_infection;
-
-    amrex::Real m_shelter_compliance = 0.95_rt;
-    amrex::Real m_symptomatic_withdraw_compliance = 0.95_rt;
 
     std::vector<DiseaseParm*> h_parm;    /*!< Disease parameters */
     std::vector<DiseaseParm*> d_parm;    /*!< Disease parameters (GPU device) */
@@ -372,11 +299,18 @@ protected:
     /*! Map of work bins (of agents) indexed by MultiFab iterator and tile index;
         see AgentContainer::interactAgentsHomeWork() */
     std::map<std::pair<int, int>, amrex::DenseBins<PType> > m_bins_work;
+    /*! Map of random travel bins (of agents) indexed by MultiFab iterator and tile index;
+        see AgentContainer::interactAgentsRandom() */
+    std::map<std::pair<int, int>, amrex::DenseBins<PType> > m_bins_random;
 
-    std::map<std::string,IntModel*> m_interactions;
+    std::map<std::string,IntModel*> m_interactions; /*!< Map of interaction models */
+    std::unique_ptr<HospitalModel<PCType,PTileType,PTDType,PType>> m_hospital; /*!< hospital model */
 
     /*! Flag to indicate if agents are at work */
     bool m_at_work;
+
+    /*! Disease status update model */
+    DiseaseStatus<PCType,PTileType,PTDType,PType> m_disease_status;
 
     /*! \brief queries if a given interaction type (model) is available */
     inline bool haveInteractionModel( const std::string& a_mod_name ) const
