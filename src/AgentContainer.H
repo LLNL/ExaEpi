@@ -263,7 +263,7 @@ public:
         return m_symptomatic_withdraw_compliance;
     }
 
-    //void printSchoolInfection(iMultiFab& unit_mf, amrex::iMultiFab& a_school_stats) const;
+    void printSchoolInfection(iMultiFab& unit_mf, amrex::iMultiFab& a_school_stats) const;
     //void printWorkersAndTeachers() const;
 
 protected:
@@ -287,7 +287,7 @@ protected:
     amrex::Real m_symptomatic_withdraw_compliance = 0.95_rt; /*!< Symptomatic withdrawal compliance rate */
 
     amrex::Real m_sc_period; /* how long school will be closed for */
-    amrex::Real m_sc_infection_threshold = 0.20 ; /* prop total infected students to trigger school dismissal flag*/
+    amrex::Real m_sc_infection_threshold = amrex::Real(0.20) ; /* prop total infected students to trigger school dismissal flag*/
     amrex::iMultiFab reset_school_infection;
 
     std::vector<DiseaseParm*> h_parm;    /*!< Disease parameters */
