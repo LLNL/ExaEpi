@@ -266,7 +266,7 @@ void runAgent ()
             pc.updateStatus(disease_stats);
             if (params.school_dismissal){
                 pc.updateSchoolInfection(demo, unit_mf, comm_mf, school_stats);
-                pc.printSchoolInfection(unit_mf, school_stats);
+                //pc.printSchoolInfection(unit_mf, school_stats);
             }
 
             for (int d = 0; d < params.num_diseases; d++) {

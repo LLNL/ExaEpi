@@ -1300,7 +1300,7 @@ void AgentContainer::updateSchoolInfection(DemographicData& demo, iMultiFab& uni
     amrex::ParmParse pp("agent");
     std::string school_dismissal_option = "by_community";
     pp.query("school_dismissal_option", school_dismissal_option);
-    int school_dismissal_flag;
+    int school_dismissal_flag = SchoolDismissal::ByCommunity;
     if (school_dismissal_option == "by_community"){school_dismissal_flag = SchoolDismissal::ByCommunity; }
     else if (school_dismissal_option == "by_school"){school_dismissal_flag = SchoolDismissal::BySchool; }
     else if (school_dismissal_option == "by_unit"){school_dismissal_flag = SchoolDismissal::ByUnit; }
@@ -1327,7 +1327,6 @@ void AgentContainer::updateSchoolInfection(DemographicData& demo, iMultiFab& uni
             auto hosp_i_ptr = soa.GetIntData(IntIdx::hosp_i).data();
             auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
             auto unit_arr = unit_mf[mfi].array();
-            auto comm_arr = comm_mf[mfi].array();
 
             // int n_disease = m_num_diseases;
             // if (n_disease > 1) {
@@ -1594,155 +1593,159 @@ void AgentContainer::updateSchoolInfection(DemographicData& demo, iMultiFab& uni
     }
 }
 
-void AgentContainer::printSchoolInfection(iMultiFab& unit_mf, iMultiFab& a_school_stats) const {
-    int n_disease = m_num_diseases;
-    int total_std_fab = 0;
-    int total_infec_fab = 0;
-    int total_infec_sim = 0;
-    int total_std_sim = 0;
 
-    // if (n_disease > 1) {
-    //     throw std::runtime_error("Multiple diseases not supported");
-    // }
+// void AgentContainer::printSchoolInfection(iMultiFab& unit_mf, iMultiFab& a_school_stats) const {
+//     int n_disease = m_num_diseases;
+//     int total_std_fab = 0;
+//     int total_infec_fab = 0;
+//     int total_infec_sim = 0;
+//     int total_std_sim = 0;
 
-    for (int lev = 0; lev <= finestLevel(); ++lev) {
-        auto& plev = GetParticles(lev);
+//     // if (n_disease > 1) {
+//     //     throw std::runtime_error("Multiple diseases not supported");
+//     // }
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-        {
-            int local_total_infec_fab = 0;
-            int local_total_infec_sim = 0;
-            int local_total_std_fab = 0;
-            int local_total_std_sim = 0;
+//     for (int lev = 0; lev <= finestLevel(); ++lev) {
+//         auto& plev = GetParticles(lev);
 
-            for (MFIter mfi = MakeMFIter(lev, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+// #ifdef AMREX_USE_OMP
+// #pragma omp parallel if (Gpu::notInLaunchRegion())
+// #endif
+//         {
+//             int local_total_infec_fab = 0;
+//             int local_total_infec_sim = 0;
+//             int local_total_std_fab = 0;
+//             int local_total_std_sim = 0;
 
-                int gid = mfi.index();
-                int tid = mfi.LocalTileIndex();
-                auto& ptile = plev.at(std::make_pair(gid, tid));
-                auto& soa = ptile.GetStructOfArrays();
-                const auto np = ptile.numParticles();
+//             for (MFIter mfi = MakeMFIter(lev, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
 
-                auto age_group_ptr = soa.GetIntData(IntIdx::age_group).data();
-                auto home_i_ptr = soa.GetIntData(IntIdx::home_i).data();
-                auto home_j_ptr = soa.GetIntData(IntIdx::home_j).data();
-                auto school_ptr = soa.GetIntData(IntIdx::school).data();
-                const auto& student_counts_arr = student_counts[mfi].array();
-                auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
-                auto hosp_i_ptr = soa.GetIntData(IntIdx::hosp_i).data();
-                auto ss_arr = a_school_stats[mfi].array();
-                const amrex::Box& bx = mfi.tilebox();
-                auto unit_arr = unit_mf[mfi].array();
+//                 int gid = mfi.index();
+//                 int tid = mfi.LocalTileIndex();
+//                 auto& ptile = plev.at(std::make_pair(gid, tid));
+//                 auto& soa = ptile.GetStructOfArrays();
+//                 const auto np = ptile.numParticles();
 
-                struct SchoolStats
-                {
-                    enum {
-                        SchoolDismissal = 0,   /*!< whether school is open or close */
-                        SchoolInfectionCount,   /*!< total infected student in community if school open */
-                        SchoolStatusDayCount  /*!< day count of school being closed */
-                    };
-                };
-                int nattr = SchoolType::nattribs;
+//                 auto timer_ptr = soa.GetRealData(RealIdx::treatment_timer).data();
+//                 auto age_group_ptr = soa.GetIntData(IntIdx::age_group).data();
+//                 auto home_i_ptr = soa.GetIntData(IntIdx::home_i).data();
+//                 auto home_j_ptr = soa.GetIntData(IntIdx::home_j).data();
+//                 auto school_ptr = soa.GetIntData(IntIdx::school).data();
+//                 const auto& student_counts_arr = student_counts[mfi].array();
+//                 auto hosp_i_ptr = soa.GetIntData(IntIdx::hosp_i).data();
+//                 auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
+//                 auto ss_arr = a_school_stats[mfi].array();
+//                 const amrex::Box& bx = mfi.tilebox();
+//                 auto unit_arr = unit_mf[mfi].array();
 
-                for (amrex::IntVect iv = bx.smallEnd(); iv <= bx.bigEnd(); bx.next(iv)) {
-                    int i = iv[0];
-                    int j = iv[1];
-                    int k = 0; // Assuming 2D; use iv[2] for 3D
-                    int count_infec = 0;
-                    int infect_high = 0;
-                    int infect_middle = 0;
-                    int infect_elem3 = 0;
-                    int infect_elem4 = 0;
-                    int infect_high_fab = 0;
-                    int infect_middle_fab = 0;
-                    int infect_elem3_fab = 0;
-                    int infect_elem4_fab = 0;
-                    int count_std = 0;
-                    int fab_total = student_counts_arr(i, j, k, SchoolType::elem_3)
-                                    + student_counts_arr(i, j, k, SchoolType::elem_4)
-                                    + student_counts_arr(i, j, k, SchoolType::middle)
-                                    + student_counts_arr(i, j, k, SchoolType::high);
+//                 struct SchoolStats
+//                 {
+//                     enum {
+//                         SchoolDismissal = 0,   /*!< whether school is open or close */
+//                         SchoolInfectionCount,   /*!< total infected student in community if school open */
+//                         SchoolStatusDayCount  /*!< day count of school being closed */
+//                     };
+//                 };
+//                 int nattr = SchoolType::nattribs;
 
-                    for (int p = 0; p < np; ++p) {
-                        if (home_i_ptr[p] == i && home_j_ptr[p] == j && age_group_ptr[p] == 1 && school_ptr[p]) {
-                            ++count_std;
-                            if (withdrawn_ptr[p] || hosp_i_ptr[p] > -1){
-                                ++count_infec;
-                                if (school_ptr[p] == SchoolType::high   || school_ptr[p] == -1*SchoolType::high){++infect_high;}
-                                if (school_ptr[p] == SchoolType::middle || school_ptr[p] == -1*SchoolType::middle){++infect_middle;}
-                                if (school_ptr[p] == SchoolType::elem_3 || school_ptr[p] == -1*SchoolType::elem_3){++infect_elem3;}
-                                if (school_ptr[p] == SchoolType::elem_4 || school_ptr[p] == -1*SchoolType::elem_4){++infect_elem4;}
-                            }
-                            for (int d = 0; d < n_disease; d++) {
-                                auto status_ptr = soa.GetIntData(IntIdx::nattribs+i0(d)+IntIdxDisease::status).data();
-                                if (unit_arr(i,j,k) == 164 && status_ptr[p] == Status::dead){std::cout << " Agent " << p << "is Dead at comm. ("
-                                                                                                                    << i << " ," << j << " ," << k << ")"<< std::endl;}
-                            }
-                        }
-                    }
-                    local_total_std_fab += fab_total; // student count
-                    local_total_infec_sim += count_infec;
-                    local_total_infec_fab += ss_arr(iv, nattr*SchoolStats::SchoolInfectionCount);
-                    local_total_std_sim += count_std;
+//                 for (amrex::IntVect iv = bx.smallEnd(); iv <= bx.bigEnd(); bx.next(iv)) {
+//                     int i = iv[0];
+//                     int j = iv[1];
+//                     int k = 0; // Assuming 2D; use iv[2] for 3D
+//                     int count_infec = 0;
+//                     int infect_high = 0;
+//                     int infect_middle = 0;
+//                     int infect_elem3 = 0;
+//                     int infect_elem4 = 0;
+//                     int infect_high_fab = 0;
+//                     int infect_middle_fab = 0;
+//                     int infect_elem3_fab = 0;
+//                     int infect_elem4_fab = 0;
+//                     int count_std = 0;
+//                     int fab_total = student_counts_arr(i, j, k, SchoolType::elem_3)
+//                                     + student_counts_arr(i, j, k, SchoolType::elem_4)
+//                                     + student_counts_arr(i, j, k, SchoolType::middle)
+//                                     + student_counts_arr(i, j, k, SchoolType::high);
 
-                    infect_high_fab   += ss_arr(iv, 1+nattr*SchoolStats::SchoolInfectionCount);
-                    infect_middle_fab += ss_arr(iv, 2+nattr*SchoolStats::SchoolInfectionCount);
-                    infect_elem3_fab  += ss_arr(iv, 3+nattr*SchoolStats::SchoolInfectionCount);
-                    infect_elem4_fab  += ss_arr(iv, 4+nattr*SchoolStats::SchoolInfectionCount);
+//                     for (int p = 0; p < np; ++p) {
+//                         if (home_i_ptr[p] == i && home_j_ptr[p] == j && age_group_ptr[p] == 1 && school_ptr[p]) {
+//                             ++count_std;
+//                             if (withdrawn_ptr[p] || hosp_i_ptr[p] > -1){
+//                                 ++count_infec;
+//                                 if (school_ptr[p] == SchoolType::high   || school_ptr[p] == -1*SchoolType::high){++infect_high;}
+//                                 if (school_ptr[p] == SchoolType::middle || school_ptr[p] == -1*SchoolType::middle){++infect_middle;}
+//                                 if (school_ptr[p] == SchoolType::elem_3 || school_ptr[p] == -1*SchoolType::elem_3){++infect_elem3;}
+//                                 if (school_ptr[p] == SchoolType::elem_4 || school_ptr[p] == -1*SchoolType::elem_4){++infect_elem4;}
+//                             }
+//                             for (int d = 0; d < n_disease; d++) {
+//                                 auto status_ptr = soa.GetIntData(IntIdx::nattribs+i0(d)+IntIdxDisease::status).data();
+//                                 if (unit_arr(i,j,k) == 164 && status_ptr[p] == Status::dead){std::cout << " Agent " << p << "is Dead at comm. ("
+//                                                                                                                     << i << " ," << j << " ," << k << ")"<< std::endl;}
+//                             }
+//                         }
+//                     }
+//                     local_total_std_fab += fab_total; // student count
+//                     local_total_infec_sim += count_infec;
+//                     local_total_infec_fab += ss_arr(iv, nattr*SchoolStats::SchoolInfectionCount);
+//                     local_total_std_sim += count_std;
 
-                    if (unit_arr(i,j,k) == 164){
-                        std::cout << "School Infection number at ("
-                                    << i << ", " << j << ", " << k << "): MultiFab = "
-                                    << ss_arr(i, j, k, nattr*SchoolStats::SchoolInfectionCount) << ", Sim = "
-                                    << count_infec << "\n"
-                                    << "  SIM Infected High School: " << infect_high << "\n"
-                                    << "  FAB Infected High School: " << ss_arr(i, j, k, 1+nattr*SchoolStats::SchoolInfectionCount) << "\n"
-                                    << "  SIM Infected Middle School: " << infect_middle << "\n"
-                                    << "  FAB Infected Middle School: " << ss_arr(i, j, k, 2+nattr*SchoolStats::SchoolInfectionCount) << "\n"
-                                    << "  SIM Infected Elementary School Neighborhood 1: " << infect_elem3 << "\n"
-                                    << "  FAB Infected Elementary School Neighborhood 1: " << ss_arr(i, j, k, 3+nattr*SchoolStats::SchoolInfectionCount) << "\n"
-                                    << "  SIM Infected Elementary School Neighborhood 2: " << infect_elem4 << "\n"
-                                    << "  FAB Infected Elementary School Neighborhood 2: " << ss_arr(i, j, k, 4+nattr*SchoolStats::SchoolInfectionCount) << std::endl;
-                        // std::cout << "School student numbers at ("
-                        //         << i << ", " << j << ", " << k << "):\n"
-                        //         << "  Total: " << student_counts_arr(i, j, k, SchoolType::total) << "\n"
-                        //         << "  High School: " << student_counts_arr(i, j, k, SchoolType::high) << "\n"
-                        //         << "  Middle School: " << student_counts_arr(i, j, k, SchoolType::middle) << "\n"
-                        //         << "  Elementary School Neighborhood 1: " << student_counts_arr(i, j, k, SchoolType::elem_3) << "\n"
-                        //         << "  Elementary School Neighborhood 2: " << student_counts_arr(i, j, k, SchoolType::elem_4) << "\n"
-                        //         << "  Day Care: " << student_counts_arr(i, j, k, SchoolType::day_care) << "\n"
-                        //         << "  Total Sim: " << count_std << "\n"
-                        //         << "  Without Daycare (Fab Total): " << fab_total << std::endl;
-                    }
-                }
+//                     infect_high_fab   += ss_arr(iv, 1+nattr*SchoolStats::SchoolInfectionCount);
+//                     infect_middle_fab += ss_arr(iv, 2+nattr*SchoolStats::SchoolInfectionCount);
+//                     infect_elem3_fab  += ss_arr(iv, 3+nattr*SchoolStats::SchoolInfectionCount);
+//                     infect_elem4_fab  += ss_arr(iv, 4+nattr*SchoolStats::SchoolInfectionCount);
 
-            }
+//                     if (unit_arr(i,j,k) == 164){
+//                         std::cout << "School Infection number at ("
+//                                     << i << ", " << j << ", " << k << "): MultiFab = "
+//                                     << ss_arr(i, j, k, nattr*SchoolStats::SchoolInfectionCount) << ", Sim = "
+//                                     << count_infec << "\n"
+//                                     << "  SIM Infected High School: " << infect_high << "\n"
+//                                     << "  FAB Infected High School: " << ss_arr(i, j, k, 1+nattr*SchoolStats::SchoolInfectionCount) << "\n"
+//                                     << "  SIM Infected Middle School: " << infect_middle << "\n"
+//                                     << "  FAB Infected Middle School: " << ss_arr(i, j, k, 2+nattr*SchoolStats::SchoolInfectionCount) << "\n"
+//                                     << "  SIM Infected Elementary School Neighborhood 1: " << infect_elem3 << "\n"
+//                                     << "  FAB Infected Elementary School Neighborhood 1: " << ss_arr(i, j, k, 3+nattr*SchoolStats::SchoolInfectionCount) << "\n"
+//                                     << "  SIM Infected Elementary School Neighborhood 2: " << infect_elem4 << "\n"
+//                                     << "  FAB Infected Elementary School Neighborhood 2: " << ss_arr(i, j, k, 4+nattr*SchoolStats::SchoolInfectionCount) << std::endl;
+//                         // std::cout << "School student numbers at ("
+//                         //         << i << ", " << j << ", " << k << "):\n"
+//                         //         << "  Total: " << student_counts_arr(i, j, k, SchoolType::total) << "\n"
+//                         //         << "  High School: " << student_counts_arr(i, j, k, SchoolType::high) << "\n"
+//                         //         << "  Middle School: " << student_counts_arr(i, j, k, SchoolType::middle) << "\n"
+//                         //         << "  Elementary School Neighborhood 1: " << student_counts_arr(i, j, k, SchoolType::elem_3) << "\n"
+//                         //         << "  Elementary School Neighborhood 2: " << student_counts_arr(i, j, k, SchoolType::elem_4) << "\n"
+//                         //         << "  Day Care: " << student_counts_arr(i, j, k, SchoolType::day_care) << "\n"
+//                         //         << "  Total Sim: " << count_std << "\n"
+//                         //         << "  Without Daycare (Fab Total): " << fab_total << std::endl;
+//                     }
+//                 }
 
-#ifdef AMREX_USE_OMP
-#pragma omp atomic
-#endif
-            total_infec_fab += local_total_infec_fab;
-#ifdef AMREX_USE_OMP
-#pragma omp atomic
-#endif
-            total_infec_sim += local_total_infec_sim;
-#ifdef AMREX_USE_OMP
-#pragma omp atomic
-#endif
-            total_std_fab += local_total_std_fab;
-#ifdef AMREX_USE_OMP
-#pragma omp atomic
-#endif
-            total_std_sim += local_total_std_sim;
-        }
-    }
+//             }
 
-    // Ensure that this block is executed only once, ideally outside of any parallel regions
-    // or placed in a section of the code that is guaranteed to execute after all computations
-    // are completed.
-    Print() << "Total infection count from MultiFab: " << total_infec_fab << std::endl;
-    Print() << "Total infection count from Simulation: " << total_infec_sim << std::endl;
-    Print() << "Total student count from Student mf: " << total_std_fab << std::endl;
-}
+// #ifdef AMREX_USE_OMP
+// #pragma omp atomic
+// #endif
+//             total_infec_fab += local_total_infec_fab;
+// #ifdef AMREX_USE_OMP
+// #pragma omp atomic
+// #endif
+//             total_infec_sim += local_total_infec_sim;
+// #ifdef AMREX_USE_OMP
+// #pragma omp atomic
+// #endif
+//             total_std_fab += local_total_std_fab;
+// #ifdef AMREX_USE_OMP
+// #pragma omp atomic
+// #endif
+//             total_std_sim += local_total_std_sim;
+//         }
+//     }
+
+//     // Ensure that this block is executed only once, ideally outside of any parallel regions
+//     // or placed in a section of the code that is guaranteed to execute after all computations
+//     // are completed.
+//     Print() << "Total infection count from MultiFab: " << total_infec_fab << std::endl;
+//     Print() << "Total infection count from Simulation: " << total_infec_sim << std::endl;
+//     Print() << "Total student count from Student mf: " << total_std_fab << std::endl;
+// }
+
+
