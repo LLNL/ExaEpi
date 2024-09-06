@@ -164,7 +164,7 @@ void runAgent ()
     }
 
     amrex::Vector< std::unique_ptr<MultiFab> > disease_stats;
-    iMultiFab school_stats(ba, dm, 18, 0);
+    amrex::iMultiFab school_stats(ba, dm, 18, 0);
     school_stats.setVal(0);
 
     disease_stats.resize(params.num_diseases);
@@ -226,7 +226,7 @@ void runAgent ()
             // Update agents' disease status
             pc.updateStatus(disease_stats);
             if (params.school_dismissal){
-                pc.updateSchoolInfection(demo, unit_mf, comm_mf, school_stats);
+                pc.updateSchoolInfection(school_stats, censusData);
                 //pc.printSchoolInfection(unit_mf, school_stats);
             }
 

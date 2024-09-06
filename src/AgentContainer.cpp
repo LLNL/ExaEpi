@@ -3,6 +3,7 @@
 */
 
 #include "AgentContainer.H"
+#include "CensusData.H"
 
 using namespace amrex;
 
@@ -44,8 +45,8 @@ AgentContainer::AgentContainer (const amrex::Geometry            & a_geom,  /*!<
                                 0,
                                 RealIdx::nattribs,
                                 IntIdx::nattribs> (a_geom, a_dmap, a_ba),
-        m_student_counts(a_ba, a_dmap, SchoolType::total_school_type, 0),
-        reset_school_infection(a_ba, a_dmap, SchoolType::nattribs, 0)
+        m_student_counts(a_ba, a_dmap, SchoolType::nattribs, 0),
+        m_reset_school_infection(a_ba, a_dmap, SchoolType::nattribs, 0)
 {
     BL_PROFILE("AgentContainer::AgentContainer");
 
@@ -54,7 +55,7 @@ AgentContainer::AgentContainer (const amrex::Geometry            & a_geom,  /*!<
     m_disease_names = a_disease_names;
 
     m_student_counts.setVal(0);
-    reset_school_infection.setVal(0);
+    m_reset_school_infection.setVal(0);
     add_attributes();
 
     {
@@ -695,9 +696,10 @@ void AgentContainer::interactRandomTravel ( MultiFab& a_mask_behavior, /*!< Mask
     }
 }
 
-void AgentContainer::updateSchoolInfection(DemographicData& demo, iMultiFab& unit_mf, iMultiFab& comm_mf,iMultiFab& a_school_stats /*!< Community-wise school infection stats and status tracker */)
+void AgentContainer::updateSchoolInfection(iMultiFab& a_school_stats, const CensusData& censusData) /*!< Community-wise school infection stats and status tracker */
 {
     BL_PROFILE("AgentContainer::updateSchoolInfo");
+    auto &demo = censusData.demo;
 
     struct SchoolDismissal
     {
@@ -737,7 +739,7 @@ void AgentContainer::updateSchoolInfection(DemographicData& demo, iMultiFab& uni
             auto school_ptr = soa.GetIntData(IntIdx::school).data();
             auto hosp_i_ptr = soa.GetIntData(IntIdx::hosp_i).data();
             auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
-            auto unit_arr = unit_mf[mfi].array();
+            auto unit_arr = censusData.unit_mf[mfi].array();
 
             // int n_disease = m_num_diseases;
             // if (n_disease > 1) {
@@ -748,8 +750,8 @@ void AgentContainer::updateSchoolInfection(DemographicData& demo, iMultiFab& uni
             auto sc_period = m_sc_period;
 
             auto ss_arr = a_school_stats[mfi].array();
-            auto infection_reset_arr = reset_school_infection[mfi].array();
-            const auto& sc_arr = student_counts[mfi].array();
+            auto infection_reset_arr = m_reset_school_infection[mfi].array();
+            const auto& sc_arr = m_student_counts[mfi].array();
 
             const Box& bx = mfi.tilebox();
 
@@ -1005,7 +1007,7 @@ void AgentContainer::updateSchoolInfection(DemographicData& demo, iMultiFab& uni
 }
 
 
-// void AgentContainer::printSchoolInfection(iMultiFab& unit_mf, iMultiFab& a_school_stats) const {
+// void AgentContainer::printSchoolInfection(CensusData& censusData, iMultiFab& a_school_stats) const {
 //     int n_disease = m_num_diseases;
 //     int total_std_fab = 0;
 //     int total_infec_fab = 0;
@@ -1041,12 +1043,12 @@ void AgentContainer::updateSchoolInfection(DemographicData& demo, iMultiFab& uni
 //                 auto home_i_ptr = soa.GetIntData(IntIdx::home_i).data();
 //                 auto home_j_ptr = soa.GetIntData(IntIdx::home_j).data();
 //                 auto school_ptr = soa.GetIntData(IntIdx::school).data();
-//                 const auto& student_counts_arr = student_counts[mfi].array();
+//                 const auto& student_counts_arr = m_student_counts[mfi].array();
 //                 auto hosp_i_ptr = soa.GetIntData(IntIdx::hosp_i).data();
 //                 auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
 //                 auto ss_arr = a_school_stats[mfi].array();
 //                 const amrex::Box& bx = mfi.tilebox();
-//                 auto unit_arr = unit_mf[mfi].array();
+//                 auto unit_arr = censusData.unit_mf[mfi].array();
 
 //                 struct SchoolStats
 //                 {

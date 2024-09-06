@@ -22,6 +22,7 @@
 #include "DiseaseStatus.H"
 #include "HospitalModel.H"
 #include "InteractionModelLibrary.H"
+class CensusData;
 
 
 /*! \brief Derived class from ParticleContainer that defines agents and their functions */
@@ -66,7 +67,7 @@ public:
 
     void updateStatus (MFPtrVec&);
 
-    void updateSchoolInfection(DemographicData& demo, amrex::iMultiFab& unit_mf, amrex::iMultiFab& comm_mf, amrex::iMultiFab& ss);
+    void updateSchoolInfection(amrex::iMultiFab& a_school_stats, const CensusData& censusData);
 
     void infectAgents ();
 
@@ -150,10 +151,10 @@ public:
     int m_num_diseases; /*!< Number of diseases */
     std::vector<std::string> m_disease_names; /*!< names of the diseases */
 
-    amrex::iMultiFab reset_school_infection; /* reset infection counts each day*/
+    amrex::iMultiFab m_reset_school_infection; /* reset infection counts each day*/
 
 
-    void printSchoolInfection(iMultiFab& unit_mf, amrex::iMultiFab& a_school_stats) const;
+    //void printSchoolInfection(amrex::iMultiFab& a_school_stats, const CensusData& censusData) const;
 
 protected:
 
