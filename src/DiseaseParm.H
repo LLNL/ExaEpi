@@ -113,21 +113,21 @@ struct DiseaseParm
 
     amrex::Real reinfect_prob = amrex::Real(0.0); /*!< Reinfection probability */
 
-    amrex::Real vac_eff = amrex::Real(1.0); /*!< Vaccine efficacy */
+    amrex::Real vac_eff = amrex::Real(0.0); /*!< Vaccine efficacy */
 
     amrex::Real Child_compliance, /*!< Child compliance with masking ?? */
                 Child_HH_closure; /*!< Multiplier for household contacts during school closure */
 
-    amrex::Real incubation_length_mean = 3.0;   /*!< mean time (in days) until infectious*/
+    amrex::Real latent_length_mean = 3.0;   /*!< mean time (in days) until infectious*/
     amrex::Real infectious_length_mean = 6.0;   /*!< mean time (in days) agents are infectious */
-    amrex::Real symptomdev_length_mean = 5.0;   /*!< mean time (in days) until symptoms show */
+    amrex::Real incubation_length_mean = 5.0;   /*!< mean time (in days) until symptoms show */
 
-    amrex::Real incubation_length_std = 1.0;   /*!< std dev (in days) for the above*/
+    amrex::Real latent_length_std = 1.0;   /*!< std dev (in days) for the above*/
     amrex::Real infectious_length_std = 1.0;   /*!< std dev (in days) for the above */
-    amrex::Real symptomdev_length_std = 1.0;   /*!< std dev (in days) for the above */
+    amrex::Real incubation_length_std = 1.0;   /*!< std dev (in days) for the above */
 
-    amrex::Real mean_immune_time = 30*6;  /*! mean immunity time in days*/
-    amrex::Real immune_time_spread = 30*2;  /*! spread in immunity time in days*/
+    amrex::Real immune_length_mean = 30*6;  /*! mean immunity time in days*/
+    amrex::Real immune_length_std = 30*2;  /*! spread in immunity time in days*/
 
     /*! number of hospitalization days by age group (#AgeGroups_Hosp); note that the
      *  age groups here are under 50, 50-64, and over 65, and *not* the age groups

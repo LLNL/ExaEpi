@@ -33,10 +33,8 @@ The following are inputs for the overall simulation:
 * ``agent.disease_names`` (vector of `strings`)
     Names of the diseases; the size of the vector must be the same as ``agent.number_of_diseases``.
     If unspecified, the disease names are set as ``default00``, ``default01``, ``...``.
-* ``agent.ic_type`` (`string`: either ``"census"`` or ``"demo"``)
+* ``agent.ic_type`` (`string`: either ``"census"``)
     If ``"census"``, initial conditions will be read from the provided census data file.
-    If ``"demo"``, agents will be initialized according to a power law distribution.
-    Note that the ``"demo"`` `ic_type` is deprecated and will be removed in the future.
 * ``agent.census_filename`` (`string`)
     The path to the ``*.dat`` file containing the census data used to set initial conditions.
     Must be provided if ``ic_type`` is ``"census"``. Examples of these data files are provided
@@ -139,22 +137,22 @@ The following inputs specify the disease parameters:
     The relative infectiousness of asymptomatic individuals. There must be
     one entry for each disease strain.
 * ``disease.vac_eff`` (`float`, example: ``0.4``)
-    The vaccine efficacy - the probability of transmission will be multiplied by this factor
-* ``disease.mean_immune_time`` (`float`, default: 180)
+    The vaccine efficacy - the probability of transmission will be multiplied by one minus this factor
+* ``disease.immune_length_mean`` (`float`, default: 180)
     The mean amount of time *in days* agents are immune post-infection
-* ``disease.immune_time_spread`` (`float`, default: 60)
-    The spread associated with the above mean, each agent will draw uniformly from mean +/- spread
-* ``disease.incubation_length_mean`` (`float`, default: ``3.0``)
-    Mean length of the incubation period in days. Before this, agents have no symptoms and are not infectious.
+* ``disease.immune_length_std`` (`float`, default: 60)
+    The standard deviation associated with the above mean, i.e. the length is drawn from a normal distribution
+* ``disease.latent_length_mean`` (`float`, default: ``3.0``)
+    Mean length of time from exposure until agent becomes infectious in days.
 * ``disease.infectious_length_mean`` (`float`, default: ``6.0``)
-    Mean length of the infectious period in days. This counter starts once the incubation phase is over. Before tihs, agents are symptomatic and can spread the disease.
-* ``disease.symptomdev_length_mean`` (`float`, default: ``5.0``)
-    Mean length of the time from exposure until symptoms develop in days. During the symptomatic-but-not-infectious stage agents  may self-withdraw, but they cannot spread the illness.
-* ``disease.incubation_length_std`` (`float`, default: ``1.0``)
-    Standard deviation of the incubation period in days.
+    Mean length of the infectious period in days. This counter starts once the latent phase is over.
+* ``disease.incubation_length_mean`` (`float`, default: ``5.0``)
+    Mean length of the time from exposure until symptoms develop in days.
+* ``disease.latent_length_std`` (`float`, default: ``1.0``)
+    Standard deviation of the latent period in days.
 * ``disease.infectious_length_std`` (`float`, default: ``1.0``)
     Standard deviation of the infectious period in days.
-* ``disease.symptomdev_length_std`` (`float`, default: ``1.0``)
+* ``disease.incubation_length_std`` (`float`, default: ``1.0``)
     Standard deviation of the time until symptom development in days.
 * ``disease.hospitalization_days`` (`list of float`, default: ``3.0 8.0 7.0``)
     Number of hospitalization days for age groups: under 50, 50-64, 65 and over.
