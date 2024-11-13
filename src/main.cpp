@@ -179,6 +179,8 @@ void runAgent ()
 
     MultiFab mask_behavior(ba, dm, 1, 0);
     mask_behavior.setVal(1);
+    amrex::iMultiFab school_stats(ba, dm, SchoolType::nattribs * 4, 0); /*!< Each schooltype has 3 comp: Dismissal, InfectionCount, ClosedDayCount */
+    school_stats.setVal(0);
 
     AgentContainer pc(geom, dm, ba, params.num_diseases, params.disease_names, params.fast);
 
@@ -230,7 +232,13 @@ void runAgent ()
             }
 
             // Update agents' disease status
-            pc.updateStatus(disease_stats);
+            pc.updateStatus(disease_stats, cur_time);
+
+            //Update School closure based on daily disease status
+            if (params.school_dismissal){
+                pc.updateSchoolInfection(school_stats, censusData, cur_time);
+             //pc.printSchoolInfection(unit_mf, school_stats);
+            }
 
             for (int d = 0; d < params.num_diseases; d++) {
                 auto counts = pc.getTotals(d);

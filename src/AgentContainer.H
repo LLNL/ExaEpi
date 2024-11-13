@@ -23,6 +23,7 @@
 #include "HospitalModel.H"
 #include "InteractionModelLibrary.H"
 
+class CensusData;  // Forward declaration needed for School Dismissal flag function
 
 /*! \brief Derived class from ParticleContainer that defines agents and their functions */
 class AgentContainer
@@ -63,7 +64,9 @@ public:
 
     void returnRandomTravel ();
 
-    void updateStatus (MFPtrVec&);
+    void updateStatus(MFPtrVec& a_disease_stats, const amrex::Real cur_time);
+
+    void updateSchoolInfection(amrex::iMultiFab& a_school_stats, const CensusData& censusData, const amrex::Real a_cur_time);
 
     void infectAgents ();
 
@@ -147,12 +150,18 @@ public:
     int m_num_diseases; /*!< Number of diseases */
     std::vector<std::string> m_disease_names; /*!< names of the diseases */
 
+    amrex::iMultiFab m_reset_school_infection; /* reset infection counts each day*/
+    //void printSchoolInfection(amrex::iMultiFab& a_school_stats, const CensusData& censusData) const;
+
 protected:
 
     int m_symptomatic_withdraw = 1; /*!< whether symptomatic agents withdraw or not */
 
     amrex::Real m_shelter_compliance = 0.95_rt; /*!< Shelter-in-place compliance rate */
     amrex::Real m_symptomatic_withdraw_compliance = 0.95_rt; /*!< Symptomatic withdrawal compliance rate */
+
+    amrex::Real m_sc_period; /* how long school will be closed for */
+    amrex::Real m_sc_infection_threshold = amrex::Real(0.20) ; /* proportion of total infected students to trigger school dismissal flag*/
 
     std::vector<DiseaseParm*> m_h_parm;    /*!< Disease parameters */
     std::vector<DiseaseParm*> m_d_parm;    /*!< Disease parameters (GPU device) */

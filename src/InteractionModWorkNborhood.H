@@ -26,6 +26,7 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE
         auto nborhood_ptr = a_ptd.m_idata[IntIdx::nborhood];
         auto work_nborhood_ptr = a_ptd.m_idata[IntIdx::work_nborhood];
         auto random_travel_ptr = a_ptd.m_idata[IntIdx::random_travel];
+        auto school_ptr = a_ptd.m_idata[IntIdx::school];
 
         AMREX_ALWAYS_ASSERT(a_ptd.m_idata[IntIdx::work_i][infectious_i] == a_ptd.m_idata[IntIdx::work_i][susceptible_i] &&
                             a_ptd.m_idata[IntIdx::work_j][infectious_i] == a_ptd.m_idata[IntIdx::work_j][susceptible_i]);
@@ -33,9 +34,9 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 
         //infect *= i_mask;
         //infect *= j_mask;
-        // define neighbordhood based on age of agent
-        int nborhood_infectious = age_group_ptr[infectious_i] > 1 ? work_nborhood_ptr[infectious_i] : nborhood_ptr[infectious_i];
-        int nborhood_susceptible = age_group_ptr[susceptible_i] > 1 ? work_nborhood_ptr[susceptible_i] : nborhood_ptr[susceptible_i];
+        // define neighbordhood based on age of agent -- teacher at home if school is closed
+        int nborhood_infectious  = (age_group_ptr[infectious_i]  > 1 && school_ptr[infectious_i]  >=0) ? work_nborhood_ptr[infectious_i] : nborhood_ptr[infectious_i];
+        int nborhood_susceptible = (age_group_ptr[susceptible_i] > 1 && school_ptr[susceptible_i] >=0) ? work_nborhood_ptr[susceptible_i] : nborhood_ptr[susceptible_i];
 
         // school < 0 means a child normally attends school, but not today
         // Should always be in the same community = same cell

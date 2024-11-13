@@ -53,6 +53,7 @@ struct IntIdx
         workgroup,      /*!< workgroup ID */
         work_nborhood,  /*!< work neighborhood ID */
         withdrawn,      /*!< quarantine status */
+        withdrawn_date, /*!< quarantine date */
         random_travel,  /*!< on long distance travel? */
         nattribs        /*!< number of integer-type attribute */
     };
@@ -79,7 +80,7 @@ struct SchoolType
         elem_3,      /*!< Elementary School Neighbordhood 1 & 2 */
         elem_4,      /*!< Elementary School Neighbordhood 3 & 4 */
         day_care,     /*!< Day care + Playground */
-        total_school_type
+        nattribs    /*!< number of school-type attribute */
     };
 };
 

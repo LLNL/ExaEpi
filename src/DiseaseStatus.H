@@ -53,7 +53,7 @@ class DiseaseStatus
         /*! \brief Updates disease status of each agent at a given step and
          *   also updates a MultiFab that tracks disease statistics (hospitalization,
          *   ICU, ventilator, and death) in a community. */
-        virtual void updateAgents(AC&, MFPtrVec&) const;
+        virtual void updateAgents(AC&, MFPtrVec&, const amrex::Real) const;
 
     protected:
 
@@ -80,7 +80,8 @@ class DiseaseStatus
 */
 template<typename AC, typename ACT, typename ACTD, typename A>
 void DiseaseStatus<AC,ACT,ACTD,A>::updateAgents(AC& a_agents, /*!< Agent containter */
-                                                MFPtrVec& a_stats /*!< MultiFab to store disease stats */ ) const
+                                                MFPtrVec& a_stats, /*!< MultiFab to store disease stats */
+                                                const amrex::Real a_cur_time) const
 {
     BL_PROFILE("DiseaseStatus::updateAgents");
     int n_disease = a_agents.numDiseases();
@@ -107,6 +108,7 @@ void DiseaseStatus<AC,ACT,ACTD,A>::updateAgents(AC& a_agents, /*!< Agent contain
             auto hosp_i_ptr = soa.GetIntData(IntIdx::hosp_i).data();
             auto hosp_j_ptr = soa.GetIntData(IntIdx::hosp_j).data();
             auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
+            auto withdrawn_date_ptr = soa.GetIntData(IntIdx::withdrawn_date).data();
 
             auto symptomatic_withdraw = a_agents.symptomaticWithdraw();
             auto symptomatic_withdraw_compliance = a_agents.symptomaticWithdrawCompliance();
@@ -183,6 +185,7 @@ void DiseaseStatus<AC,ACT,ACTD,A>::updateAgents(AC& a_agents, /*!< Agent contain
                                 &&  (symptomatic_withdraw)
                                 &&  (Random(engine) < symptomatic_withdraw_compliance)) {
                                 withdrawn_ptr[i] = 1;
+                                withdrawn_date_ptr[i] = a_cur_time;
                             }
                         }
                         if (counter_ptr[i] < incubation_period_ptr[i]) {
@@ -209,6 +212,7 @@ void DiseaseStatus<AC,ACT,ACTD,A>::updateAgents(AC& a_agents, /*!< Agent contain
                                     counter_ptr[i] = amrex::RandomNormal(immune_length_mean, immune_length_std, engine);
                                     symptomatic_ptr[i] = SymptomStatus::presymptomatic;
                                     withdrawn_ptr[i] = 0;
+                                    withdrawn_date_ptr[i] = -1;
                                 }
                             }
                         }
@@ -223,6 +227,7 @@ void DiseaseStatus<AC,ACT,ACTD,A>::updateAgents(AC& a_agents, /*!< Agent contain
                 if (flag_hosp_ptr[i] == 1) {
                     AMREX_ALWAYS_ASSERT(!isHospitalized(i, ptd));
                     assign_hospital( i, hosp_i_ptr, hosp_j_ptr, ptd);
+                    withdrawn_date_ptr[i] = a_cur_time;
                 }
             });
 

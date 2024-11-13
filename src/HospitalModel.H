@@ -76,6 +76,7 @@ void HospitalModel<PCType, PTDType, PType>::treatAgents(PCType& a_agents, /*!< A
 
             auto age_group_ptr = soa.GetIntData(IntIdx::age_group).data();
             auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
+            auto withdrawn_date_ptr = soa.GetIntData(IntIdx::withdrawn_date).data();
             auto home_i_ptr = soa.GetIntData(IntIdx::home_i).data();
             auto home_j_ptr = soa.GetIntData(IntIdx::home_j).data();
             auto hosp_i_ptr = soa.GetIntData(IntIdx::hosp_i).data();
@@ -166,6 +167,7 @@ void HospitalModel<PCType, PTDType, PType>::treatAgents(PCType& a_agents, /*!< A
                             counter_ptrs[d][i] = amrex::RandomNormal(immune_length_mean, immune_length_std, engine);
                             symptomatic_ptrs[d][i] = SymptomStatus::presymptomatic;
                             withdrawn_ptr[i] = 0;
+                            withdrawn_date_ptr[i] = -1;
                             timer_ptrs[d][i] = 0.0_rt;
                         }
                     }
@@ -185,6 +187,7 @@ void HospitalModel<PCType, PTDType, PType>::treatAgents(PCType& a_agents, /*!< A
                                              + 2.0_rt*immune_length_std*Random(engine);
                             symptomatic_ptrs[d][i] = SymptomStatus::presymptomatic;
                             withdrawn_ptr[i] = 0;
+                            withdrawn_date_ptr[i] = -1;
                             timer_ptrs[d][i] = 0.0_rt;
                         }
                     }
@@ -204,6 +207,7 @@ void HospitalModel<PCType, PTDType, PType>::treatAgents(PCType& a_agents, /*!< A
                                              + 2.0_rt*immune_length_std*Random(engine);
                             symptomatic_ptrs[d][i] = SymptomStatus::presymptomatic;
                             withdrawn_ptr[i] = 0;
+                            withdrawn_date_ptr[i] = -1;
                             timer_ptrs[d][i] = 0.0_rt;
                         }
                     }
@@ -224,6 +228,7 @@ void HospitalModel<PCType, PTDType, PType>::treatAgents(PCType& a_agents, /*!< A
                     hosp_i_ptr[i] = -1;
                     hosp_j_ptr[i] = -1;
                     withdrawn_ptr[i] = 0;
+                    withdrawn_date_ptr[i] = -1;
 
                 } else {
 
@@ -237,6 +242,7 @@ void HospitalModel<PCType, PTDType, PType>::treatAgents(PCType& a_agents, /*!< A
                         hosp_i_ptr[i] = -1;
                         hosp_j_ptr[i] = -1;
                         withdrawn_ptr[i] = 0;
+                        withdrawn_date_ptr[i] = -1;
                         PType& p = pstruct[i];
                         p.pos(0) = (home_i_ptr[i] + 0.5_prt)*dx[0];
                         p.pos(1) = (home_j_ptr[i] + 0.5_prt)*dx[1];

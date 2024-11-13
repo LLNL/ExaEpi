@@ -317,6 +317,8 @@ void CensusData::initAgents (AgentContainer& pc,       /*!< Agents */
         auto school_ptr = soa.GetIntData(IntIdx::school).data();
         auto workgroup_ptr = soa.GetIntData(IntIdx::workgroup).data();
         auto work_nborhood_ptr = soa.GetIntData(IntIdx::work_nborhood).data();
+        auto withdrawn_ptr = soa.GetIntData(IntIdx::withdrawn).data();
+        auto withdrawn_date_ptr = soa.GetIntData(IntIdx::withdrawn_date).data();
         auto random_travel_ptr = soa.GetIntData(IntIdx::random_travel).data();
 
         int i_RT = IntIdx::nattribs;
@@ -455,6 +457,8 @@ void CensusData::initAgents (AgentContainer& pc,       /*!< Agents */
                 nborhood_ptr[ip] = nborhood;
                 work_nborhood_ptr[ip] = nborhood;
                 workgroup_ptr[ip] = 0;
+                withdrawn_ptr[ip] = 0;
+                withdrawn_date_ptr[ip] = -1;
                 random_travel_ptr[ip] = -1;
 
                 if (age_group == 0) {
@@ -1103,7 +1107,3 @@ void CensusData::setInitialCasesRandom (AgentContainer& pc, /*!< Agent container
         amrex::ignore_unused(ninf);
     }
 }
-
-
-
-

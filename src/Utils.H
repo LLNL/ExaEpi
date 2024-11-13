@@ -34,6 +34,8 @@ struct TestParams
     int num_diseases;   /*!< Number of diseases to track */
     std::vector<std::string> disease_names; /*!< Names of the diseases */
 
+    int school_dismissal = 0;  /*!< School Dismissal Flag */
+
     /*! Census data filename (DemographicData::InitFromFile)
 
         The file contents are:
