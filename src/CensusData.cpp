@@ -680,7 +680,12 @@ void CensusData::read_workerflow (AgentContainer& pc,           /*!< Agent conta
     }
     The_Device_Arena()->free(d_flow);
 
-    assignTeachersAndWorkgroup(pc, workgroup_size);
+    amrex::ParmParse pp("agent");
+    int m_add_teachers = 1;
+
+    pp.query("add_teachers", m_add_teachers);
+    if (m_add_teachers)
+        assignTeachersAndWorkgroup(pc, workgroup_size);
 }
 
 
