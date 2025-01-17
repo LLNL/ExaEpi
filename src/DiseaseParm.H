@@ -81,7 +81,7 @@ struct DiseaseParm
     Real xmit_work_a50to64[AgeGroups::total] = {Real(0.), Real(0.), Real(0.0575), Real(0.0575), Real(0.0575), Real(0.)};
 
     // Define in DiseaseParm.cpp
-    Real workdiff_scale = Real(0.75);  // 25% less interaction between workers from different subgroup
+    Real workdiff_scale = Real(1.);  // 25% less interaction between workers from different subgroup
     Real xmit_workdiff_a18to29[AgeGroups::total];
     Real xmit_workdiff_a30to49[AgeGroups::total];
     Real xmit_workdiff_a50to64[AgeGroups::total];
