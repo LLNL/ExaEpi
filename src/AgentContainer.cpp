@@ -980,3 +980,571 @@ void AgentContainer::printAgeGroupCounts() const {
                 << "  Total      " << total_agents << "\n";
     }
 }
+
+std::array<Long, 9> AgentContainer::getTotalsAgeGroup (const int a_d, int age_group/*!< disease index */) {
+    BL_PROFILE("getTotalsAgeGroup");
+
+    amrex::ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+                     ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = amrex::ParticleReduce<ReduceData<int, int, int, int, int, int, int, int, int>> (
+        *this, [=] AMREX_GPU_DEVICE (
+            const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+            const int i) noexcept
+        -> amrex::GpuTuple<int, int, int, int, int, int, int, int, int>
+        {
+            auto age_gp = ptd.m_idata[IntIdx::age_group][i];
+
+            // If age group doesn't match, return all zeros
+            if (age_gp != age_group) {
+                return {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            }
+
+            int s[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            auto status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::status][i];
+
+            AMREX_ALWAYS_ASSERT(status >= 0);
+            AMREX_ALWAYS_ASSERT(status <= 4);
+
+            s[status] = 1;
+
+            if (status == Status::infected) {  // Exposed
+                if (notInfectiousButInfected(i, ptd, a_d)) {
+                    s[5] = 1;  // Exposed but not infectious
+                } else { // Infectious
+                    auto symptom_status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::symptomatic][i];
+
+                    if (symptom_status == SymptomStatus::asymptomatic) {
+                        s[6] = 1;  // Asymptomatic and will remain so
+                    }
+                    else if (symptom_status == SymptomStatus::presymptomatic) {
+                        s[7] = 1;  // Asymptomatic but will develop symptoms
+                    }
+                    else if (symptom_status == SymptomStatus::symptomatic) {
+                        s[8] = 1;  // Infectious and symptomatic
+                    } else {
+                        amrex::Abort("Unexpected symptom status.");
+                    }
+                }
+            }
+
+            return {s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]};
+        }, reduce_ops
+    );
+
+    std::array<Long, 9> counts = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r), amrex::get<3>(r),
+                                  amrex::get<4>(r), amrex::get<5>(r), amrex::get<6>(r), amrex::get<7>(r),
+                                  amrex::get<8>(r)};
+
+    // Perform parallel reduction across MPI processes
+    ParallelDescriptor::ReduceLongSum(&counts[0], 9, ParallelDescriptor::IOProcessorNumber());
+
+    return counts;
+}
+std::array<Long, 9> AgentContainer::getTotalsWorkers (const int a_d/*!< disease index */) {
+    BL_PROFILE("getTotalsWorkers");
+
+    amrex::ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+                     ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = amrex::ParticleReduce<ReduceData<int, int, int, int, int, int, int, int, int>> (
+        *this, [=] AMREX_GPU_DEVICE (
+            const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+            const int i) noexcept
+        -> amrex::GpuTuple<int, int, int, int, int, int, int, int, int>
+        {
+            auto workgroup_ptr = ptd.m_idata[IntIdx::workgroup][i];
+            auto school_id = ptd.m_idata[IntIdx::school_id][i];
+
+            if (workgroup_ptr <=0 || school_id > 0) {
+                return {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            }
+
+            int s[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            auto status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::status][i];
+
+            AMREX_ALWAYS_ASSERT(status >= 0);
+            AMREX_ALWAYS_ASSERT(status <= 4);
+
+            s[status] = 1;
+
+            if (status == Status::infected) {  // Exposed
+                if (notInfectiousButInfected(i, ptd, a_d)) {
+                    s[5] = 1;  // Exposed but not infectious
+                } else { // Infectious
+                    auto symptom_status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::symptomatic][i];
+
+                    if (symptom_status == SymptomStatus::asymptomatic) {
+                        s[6] = 1;  // Asymptomatic and will remain so
+                    }
+                    else if (symptom_status == SymptomStatus::presymptomatic) {
+                        s[7] = 1;  // Asymptomatic but will develop symptoms
+                    }
+                    else if (symptom_status == SymptomStatus::symptomatic) {
+                        s[8] = 1;  // Infectious and symptomatic
+                    } else {
+                        amrex::Abort("Unexpected symptom status.");
+                    }
+                }
+            }
+
+            return {s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]};
+        }, reduce_ops
+    );
+
+    std::array<Long, 9> counts = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r), amrex::get<3>(r),
+                                  amrex::get<4>(r), amrex::get<5>(r), amrex::get<6>(r), amrex::get<7>(r),
+                                  amrex::get<8>(r)};
+
+    // Perform parallel reduction across MPI processes
+    ParallelDescriptor::ReduceLongSum(&counts[0], 9, ParallelDescriptor::IOProcessorNumber());
+
+    return counts;
+}
+std::array<Long, 9> AgentContainer::getTotalsTeachers (const int a_d/*!< disease index */) {
+    BL_PROFILE("getTotalsWorkers");
+
+    amrex::ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+                     ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = amrex::ParticleReduce<ReduceData<int, int, int, int, int, int, int, int, int>> (
+        *this, [=] AMREX_GPU_DEVICE (
+            const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+            const int i) noexcept
+        -> amrex::GpuTuple<int, int, int, int, int, int, int, int, int>
+        {
+            auto workgroup_ptr = ptd.m_idata[IntIdx::workgroup][i];
+            auto school_id = ptd.m_idata[IntIdx::school_id][i];
+
+            if (workgroup_ptr <=0 || school_id <= 0) {
+                return {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            }
+
+            int s[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            auto status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::status][i];
+
+            AMREX_ALWAYS_ASSERT(status >= 0);
+            AMREX_ALWAYS_ASSERT(status <= 4);
+
+            s[status] = 1;
+
+            if (status == Status::infected) {  // Exposed
+                if (notInfectiousButInfected(i, ptd, a_d)) {
+                    s[5] = 1;  // Exposed but not infectious
+                } else { // Infectious
+                    auto symptom_status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::symptomatic][i];
+
+                    if (symptom_status == SymptomStatus::asymptomatic) {
+                        s[6] = 1;  // Asymptomatic and will remain so
+                    }
+                    else if (symptom_status == SymptomStatus::presymptomatic) {
+                        s[7] = 1;  // Asymptomatic but will develop symptoms
+                    }
+                    else if (symptom_status == SymptomStatus::symptomatic) {
+                        s[8] = 1;  // Infectious and symptomatic
+                    } else {
+                        amrex::Abort("Unexpected symptom status.");
+                    }
+                }
+            }
+
+            return {s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]};
+        }, reduce_ops
+    );
+
+    std::array<Long, 9> counts = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r), amrex::get<3>(r),
+                                  amrex::get<4>(r), amrex::get<5>(r), amrex::get<6>(r), amrex::get<7>(r),
+                                  amrex::get<8>(r)};
+
+    // Perform parallel reduction across MPI processes
+    ParallelDescriptor::ReduceLongSum(&counts[0], 9, ParallelDescriptor::IOProcessorNumber());
+
+    return counts;
+}
+std::array<Long, 9> AgentContainer::getTotalsNonWorkers (const int a_d/*!< disease index */) {
+    BL_PROFILE("getTotalsNonWorkers");
+
+    amrex::ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+                     ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = amrex::ParticleReduce<ReduceData<int, int, int, int, int, int, int, int, int>> (
+        *this, [=] AMREX_GPU_DEVICE (
+            const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+            const int i) noexcept
+        -> amrex::GpuTuple<int, int, int, int, int, int, int, int, int>
+        {
+            auto workgroup_ptr = ptd.m_idata[IntIdx::workgroup][i];
+            auto age_gp = ptd.m_idata[IntIdx::age_group][i];
+
+            if (workgroup_ptr >0 || age_gp < 2 || age_gp > 4 ) {
+                return {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            }
+
+            int s[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            auto status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::status][i];
+
+            AMREX_ALWAYS_ASSERT(status >= 0);
+            AMREX_ALWAYS_ASSERT(status <= 4);
+
+            s[status] = 1;
+
+            if (status == Status::infected) {  // Exposed
+                if (notInfectiousButInfected(i, ptd, a_d)) {
+                    s[5] = 1;  // Exposed but not infectious
+                } else { // Infectious
+                    auto symptom_status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::symptomatic][i];
+
+                    if (symptom_status == SymptomStatus::asymptomatic) {
+                        s[6] = 1;  // Asymptomatic and will remain so
+                    }
+                    else if (symptom_status == SymptomStatus::presymptomatic) {
+                        s[7] = 1;  // Asymptomatic but will develop symptoms
+                    }
+                    else if (symptom_status == SymptomStatus::symptomatic) {
+                        s[8] = 1;  // Infectious and symptomatic
+                    } else {
+                        amrex::Abort("Unexpected symptom status.");
+                    }
+                }
+            }
+
+            return {s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]};
+        }, reduce_ops
+    );
+
+    std::array<Long, 9> counts = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r), amrex::get<3>(r),
+                                  amrex::get<4>(r), amrex::get<5>(r), amrex::get<6>(r), amrex::get<7>(r),
+                                  amrex::get<8>(r)};
+
+    // Perform parallel reduction across MPI processes
+    ParallelDescriptor::ReduceLongSum(&counts[0], 9, ParallelDescriptor::IOProcessorNumber());
+
+    return counts;
+}
+std::array<Long, 9> AgentContainer::getTotalsSchoolStudent (const int a_d, int a_school_id/*!< disease index */) {
+    BL_PROFILE("getTotalsSchoolStudent");
+
+    amrex::ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+                     ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = amrex::ParticleReduce<ReduceData<int, int, int, int, int, int, int, int, int>> (
+        *this, [=] AMREX_GPU_DEVICE (
+            const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+            const int i) noexcept
+        -> amrex::GpuTuple<int, int, int, int, int, int, int, int, int>
+        {
+            auto age_gp = ptd.m_idata[IntIdx::age_group][i];
+            auto school_id = ptd.m_idata[IntIdx::school_id][i];
+            auto school_grade_ptr = ptd.m_idata[IntIdx::school_grade][i];
+            if (school_id >= SchoolCensusIDType::daycare_5){ school_id = SchoolCensusIDType::daycare_5;}
+
+            school_id = getSchoolType(school_grade_ptr);
+
+            // If school id  doesn't match, return all zeros
+            if (age_gp > 1 ) {
+                return {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            }
+            if (school_id != a_school_id) {
+                return {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            }
+
+            int s[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            auto status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::status][i];
+
+            AMREX_ALWAYS_ASSERT(status >= 0);
+            AMREX_ALWAYS_ASSERT(status <= 4);
+
+            s[status] = 1;
+
+            if (status == Status::infected) {  // Exposed
+                if (notInfectiousButInfected(i, ptd, a_d)) {
+                    s[5] = 1;  // Exposed but not infectious
+                } else { // Infectious
+                    auto symptom_status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::symptomatic][i];
+
+                    if (symptom_status == SymptomStatus::asymptomatic) {
+                        s[6] = 1;  // Asymptomatic and will remain so
+                    }
+                    else if (symptom_status == SymptomStatus::presymptomatic) {
+                        s[7] = 1;  // Asymptomatic but will develop symptoms
+                    }
+                    else if (symptom_status == SymptomStatus::symptomatic) {
+                        s[8] = 1;  // Infectious and symptomatic
+                    } else {
+                        amrex::Abort("Unexpected symptom status.");
+                    }
+                }
+            }
+
+            return {s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]};
+        }, reduce_ops
+    );
+
+    std::array<Long, 9> counts = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r), amrex::get<3>(r),
+                                  amrex::get<4>(r), amrex::get<5>(r), amrex::get<6>(r), amrex::get<7>(r),
+                                  amrex::get<8>(r)};
+
+    // Perform parallel reduction across MPI processes
+    ParallelDescriptor::ReduceLongSum(&counts[0], 9, ParallelDescriptor::IOProcessorNumber());
+
+    return counts;
+}
+std::array<Long, 9> AgentContainer::getTotalsTeachersPerSchool (const int a_d, int a_school_id/*!< disease index */) {
+    BL_PROFILE("getTotalsWorkers");
+
+    amrex::ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+                     ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = amrex::ParticleReduce<ReduceData<int, int, int, int, int, int, int, int, int>> (
+        *this, [=] AMREX_GPU_DEVICE (
+            const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+            const int i) noexcept
+        -> amrex::GpuTuple<int, int, int, int, int, int, int, int, int>
+        {
+            auto age_gp = ptd.m_idata[IntIdx::age_group][i];
+            auto school_id = ptd.m_idata[IntIdx::school_id][i];
+            auto workgroup_ptr = ptd.m_idata[IntIdx::workgroup][i];
+            auto school_grade_ptr = ptd.m_idata[IntIdx::school_grade][i];
+            if (school_id >= SchoolCensusIDType::daycare_5){ school_id = SchoolCensusIDType::daycare_5;}
+            school_id = getSchoolType(school_grade_ptr);
+
+            if (school_id <=0 || workgroup_ptr <= 0 || school_id != a_school_id) {
+                return {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            }
+
+            int s[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            auto status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::status][i];
+
+            AMREX_ALWAYS_ASSERT(status >= 0);
+            AMREX_ALWAYS_ASSERT(status <= 4);
+
+            s[status] = 1;
+
+            if (status == Status::infected) {  // Exposed
+                if (notInfectiousButInfected(i, ptd, a_d)) {
+                    s[5] = 1;  // Exposed but not infectious
+                } else { // Infectious
+                    auto symptom_status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::symptomatic][i];
+
+                    if (symptom_status == SymptomStatus::asymptomatic) {
+                        s[6] = 1;  // Asymptomatic and will remain so
+                    }
+                    else if (symptom_status == SymptomStatus::presymptomatic) {
+                        s[7] = 1;  // Asymptomatic but will develop symptoms
+                    }
+                    else if (symptom_status == SymptomStatus::symptomatic) {
+                        s[8] = 1;  // Infectious and symptomatic
+                    } else {
+                        amrex::Abort("Unexpected symptom status.");
+                    }
+                }
+            }
+
+            return {s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]};
+        }, reduce_ops
+    );
+
+    std::array<Long, 9> counts = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r), amrex::get<3>(r),
+                                  amrex::get<4>(r), amrex::get<5>(r), amrex::get<6>(r), amrex::get<7>(r),
+                                  amrex::get<8>(r)};
+
+    // Perform parallel reduction across MPI processes
+    ParallelDescriptor::ReduceLongSum(&counts[0], 9, ParallelDescriptor::IOProcessorNumber());
+
+    return counts;
+}
+std::array<Long, 9> AgentContainer::getTotalsStudent (const int a_d/*!< disease index */) {
+    BL_PROFILE("getTotalsStudent");
+
+    amrex::ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+                     ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = amrex::ParticleReduce<ReduceData<int, int, int, int, int, int, int, int, int>> (
+        *this, [=] AMREX_GPU_DEVICE (
+            const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+            const int i) noexcept
+        -> amrex::GpuTuple<int, int, int, int, int, int, int, int, int>
+        {
+            auto age_gp = ptd.m_idata[IntIdx::age_group][i];
+            auto school_id = ptd.m_idata[IntIdx::school_id][i];
+
+            // If age group doesn't match, return all zeros
+            if (age_gp > 1 || school_id <= 0) {
+                return {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            }
+
+            int s[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+            auto status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::status][i];
+
+            AMREX_ALWAYS_ASSERT(status >= 0);
+            AMREX_ALWAYS_ASSERT(status <= 4);
+
+            s[status] = 1;
+
+            if (status == Status::infected) {  // Exposed
+                if (notInfectiousButInfected(i, ptd, a_d)) {
+                    s[5] = 1;  // Exposed but not infectious
+                } else { // Infectious
+                    auto symptom_status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::symptomatic][i];
+
+                    if (symptom_status == SymptomStatus::asymptomatic) {
+                        s[6] = 1;  // Asymptomatic and will remain so
+                    }
+                    else if (symptom_status == SymptomStatus::presymptomatic) {
+                        s[7] = 1;  // Asymptomatic but will develop symptoms
+                    }
+                    else if (symptom_status == SymptomStatus::symptomatic) {
+                        s[8] = 1;  // Infectious and symptomatic
+                    } else {
+                        amrex::Abort("Unexpected symptom status.");
+                    }
+                }
+            }
+
+            return {s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]};
+        }, reduce_ops
+    );
+
+    std::array<Long, 9> counts = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r), amrex::get<3>(r),
+                                  amrex::get<4>(r), amrex::get<5>(r), amrex::get<6>(r), amrex::get<7>(r),
+                                  amrex::get<8>(r)};
+
+    // Perform parallel reduction across MPI processes
+    ParallelDescriptor::ReduceLongSum(&counts[0], 9, ParallelDescriptor::IOProcessorNumber());
+
+    return counts;
+}
+
+
+void AgentContainer::printStudentTeacherCountsInfectedDeaths(const int a_d) const {
+    ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+              ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+              ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum,
+              ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = ParticleReduce<ReduceData<int, int, int, int, int, int, int, int, int, int,
+                                       int, int, int, int, int, int, int, int, int, int>> (
+        *this, [=] AMREX_GPU_DEVICE (const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+                                     const int i) noexcept
+        -> GpuTuple<int, int, int, int, int, int, int, int, int, int,
+                    int, int, int, int, int, int, int, int, int, int>
+        {
+            int counts[20] = {0};  // Store infected and deaths separately
+
+            if (ptd.m_idata[IntIdx::school_id][i] > 0) {
+                int school_type = getSchoolType(ptd.m_idata[IntIdx::school_grade][i]) - SchoolType::college;
+                bool is_teacher = (ptd.m_idata[IntIdx::workgroup][i] > 0);  // Teachers have workgroup > 0
+
+                auto status = ptd.m_runtime_idata[i0(a_d) + IntIdxDisease::status][i];
+
+                if (status == Status::infected) {
+                    if (is_teacher) {
+                        counts[school_type] = 1;  // Count infected teachers
+                    } else {
+                        counts[5 + school_type] = 1;  // Count infected students
+                    }
+                } else if (status == Status::dead) {
+                    if (is_teacher) {
+                        counts[10 + school_type] = 1;  // Count dead teachers
+                    } else {
+                        counts[15 + school_type] = 1;  // Count dead students
+                    }
+                }
+            }
+
+            return {counts[0], counts[1], counts[2], counts[3], counts[4],
+                    counts[5], counts[6], counts[7], counts[8], counts[9],
+                    counts[10], counts[11], counts[12], counts[13], counts[14],
+                    counts[15], counts[16], counts[17], counts[18], counts[19]};
+        }, reduce_ops);
+
+    std::array<Long, 20> counts = {amrex::get<0>(r), amrex::get<1>(r), amrex::get<2>(r), amrex::get<3>(r), amrex::get<4>(r),
+                                   amrex::get<5>(r), amrex::get<6>(r), amrex::get<7>(r), amrex::get<8>(r), amrex::get<9>(r),
+                                   amrex::get<10>(r), amrex::get<11>(r), amrex::get<12>(r), amrex::get<13>(r), amrex::get<14>(r),
+                                   amrex::get<15>(r), amrex::get<16>(r), amrex::get<17>(r), amrex::get<18>(r), amrex::get<19>(r)};
+
+    ParallelDescriptor::ReduceLongSum(&counts[0], 20, ParallelDescriptor::IOProcessorNumber());
+
+    if (ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()) {
+        int total_teachers_infected = 0, total_students_infected = 0;
+        int total_teachers_dead = 0, total_students_dead = 0;
+
+        for (int i = 0; i < 5; i++) {
+            total_teachers_infected += counts[i];
+            total_students_infected += counts[i + 5];
+            total_teachers_dead += counts[i + 10];
+            total_students_dead += counts[i + 15];
+        }
+
+        std::array<std::string, 5> school_types = {"College", "High", "Middle", "Elementary", "Childcare"};
+
+        Print() << "\n **Teacher Infection & Death Counts:**\n";
+        for (int i = 0; i < 5; i++) {
+            Print() << "  " << school_types[i]
+                    << "  Infected: " << counts[i]
+                    << "  Deaths: " << counts[i + 10] << "\n";
+        }
+        Print() << "  **Total Teachers** - Infected: " << total_teachers_infected
+                << ", Deaths: " << total_teachers_dead << "\n";
+
+        Print() << "\n **Student Infection & Death Counts:**\n";
+        for (int i = 0; i < 5; i++) {
+            Print() << "  " << school_types[i]
+                    << "  Infected: " << counts[i + 5]
+                    << "  Deaths: " << counts[i + 15] << "\n";
+        }
+        Print() << "  **Total Students** - Infected: " << total_students_infected
+                << ", Deaths: " << total_students_dead << "\n";
+    }
+}
+
+
+void AgentContainer::printWorkerCounts() const {
+    ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_ops;
+
+    auto r = ParticleReduce<ReduceData<int, int, int, int>>(
+        *this, [=] AMREX_GPU_DEVICE (const AgentContainer::ParticleTileType::ConstParticleTileDataType& ptd,
+                                     const int i) noexcept
+        -> GpuTuple<int, int, int, int>
+        {
+            int total_worker_count = 0;
+            int worker_count = 0;
+            int non_worker_count = 0;
+            int teacher_count = 0;
+
+            int age_group = ptd.m_idata[IntIdx::age_group][i];
+
+            if (age_group >= 2 && age_group <= 4) { // Only consider age groups 2-4
+                if (ptd.m_idata[IntIdx::workgroup][i] > 0) {
+                    total_worker_count = 1;
+                    if (ptd.m_idata[IntIdx::school_id][i] > 0){
+                        teacher_count = 1;
+                    } else{
+                        worker_count = 1;
+                    }
+                } else {
+                    non_worker_count = 1;
+                }
+            }
+
+            return {total_worker_count, worker_count, teacher_count, non_worker_count};
+        }, reduce_ops);
+
+    std::array<Long, 4> counts = {
+        amrex::get<0>(r),  // Total Workers
+        amrex::get<1>(r),  // Workers
+        amrex::get<2>(r),  // Teachers
+        amrex::get<3>(r)   // Non-workers
+    };
+
+    ParallelDescriptor::ReduceLongSum(&counts[0], 4, ParallelDescriptor::IOProcessorNumber());
+
+    if (ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()) {
+        Print() << "Workers Counts (Age Group 2-4):\n"
+                << "  Total Workers: " << counts[0] << "\n"
+                << "  Non-Teachers: " << counts[1] << "\n"
+                << "  Teachers: " << counts[2] << "\n"
+                << "  Non-Workers: " << counts[3] << "\n";
+    }
+}
+

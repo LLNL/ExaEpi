@@ -136,6 +136,22 @@ public:
 
     std::array<amrex::Long, 9> getTotals (const int);
 
+    std::array<amrex::Long, 9> getTotalsAgeGroup (const int, int);
+
+    std::array<amrex::Long, 9> getTotalsSchoolStudent (const int , int);
+
+    std::array<amrex::Long, 9> getTotalsWorkers(const int);
+
+    std::array<amrex::Long, 9> getTotalsNonWorkers(const int);
+
+    std::array<amrex::Long, 9> getTotalsTeachers(const int);
+
+    std::array<amrex::Long, 9> getTotalsStudent(const int);
+
+    std::array<amrex::Long, 9> getTotalsTeachersPerSchool(const int , int);
+//    std::array<std::array<amrex::Long, 9>, AgeGroups::total + 1> getTotalsPerAge(const int);
+
+
     int getMaxGroup(const int group_idx);
 
     void moveAgentsToWork ();
@@ -170,6 +186,10 @@ public:
     void printStudentTeacherCounts() const;
 
     void printAgeGroupCounts() const;
+
+    void printStudentTeacherCountsInfectedDeaths(const int) const;
+
+    void printWorkerCounts() const;
 
     amrex::iMultiFab m_student_counts;
     /// Used only for Census data. A ratio for each school type: none, college, high, middle, elem, daycare

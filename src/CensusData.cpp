@@ -680,12 +680,16 @@ void CensusData::read_workerflow (AgentContainer& pc,           /*!< Agent conta
     }
     The_Device_Arena()->free(d_flow);
 
-    amrex::ParmParse pp("agent");
-    int m_add_teachers = 1;
+    // amrex::ParmParse pp("agent");
+    // int m_add_teachers = 1;
 
-    pp.query("add_teachers", m_add_teachers);
-    if (m_add_teachers)
-        assignTeachersAndWorkgroup(pc, workgroup_size);
+    // pp.query("add_teachers", m_add_teachers);
+    // if (m_add_teachers)
+    //     assignTeachersAndWorkgroup(pc, workgroup_size);
+    // else{
+    //     int choice = Random_int(total_teachers);
+    // }
+    assignTeachersAndWorkgroup(pc, workgroup_size);
 }
 
 
@@ -703,6 +707,11 @@ void CensusData::assignTeachersAndWorkgroup (AgentContainer& pc, const int workg
     auto elem4_teachers_ptr = elem4_teachers_array.data();
     auto daycare_teachers_ptr = daycare_teachers_array.data();
     auto student_teacher_ratio = pc.m_student_teacher_ratio;
+
+    amrex::ParmParse pp("agent");
+    int m_add_teachers = 1;
+    pp.query("add_teachers", m_add_teachers);
+
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -744,6 +753,7 @@ void CensusData::assignTeachersAndWorkgroup (AgentContainer& pc, const int workg
         Gpu::HostVector<int> school_grade_h(np);
         Gpu::HostVector<int> school_id_h(np);
         Gpu::HostVector<int> work_nborhood_h(np);
+        Gpu::HostVector<int> nborhood_h(np);
 
         Gpu::copy(Gpu::deviceToHost, soa.GetIntData(IntIdx::age_group).begin(),
                   soa.GetIntData(IntIdx::age_group).end(), age_group_h.begin());
@@ -759,6 +769,8 @@ void CensusData::assignTeachersAndWorkgroup (AgentContainer& pc, const int workg
                   soa.GetIntData(IntIdx::school_id).end(), school_id_h.begin());
         Gpu::copy(Gpu::deviceToHost, soa.GetIntData(IntIdx::work_nborhood).begin(),
                   soa.GetIntData(IntIdx::work_nborhood).end(), work_nborhood_h.begin());
+        Gpu::copy(Gpu::deviceToHost, soa.GetIntData(IntIdx::nborhood).begin(),
+                  soa.GetIntData(IntIdx::nborhood).end(), nborhood_h.begin());
 
         auto age_group_ptr = age_group_h.data();
         auto workgroup_ptr = workgroup_h.data();
@@ -767,6 +779,7 @@ void CensusData::assignTeachersAndWorkgroup (AgentContainer& pc, const int workg
         auto school_grade_ptr = school_grade_h.data();
         auto school_id_ptr = school_id_h.data();
         auto work_nborhood_ptr = work_nborhood_h.data();
+        auto nborhood_ptr = nborhood_h.data();
 
         for (int ip = 0; ip < np; ++ip) {
             int comm = (int) domain.index(IntVect(AMREX_D_DECL(work_i_ptr[ip], work_j_ptr[ip], 0)));
@@ -785,34 +798,44 @@ void CensusData::assignTeachersAndWorkgroup (AgentContainer& pc, const int workg
             if (total_teachers > 0) {
                 int choice = Random_int(total_teachers);
                 if (choice < high_teachers) {
-                    school_grade_ptr[ip] = 12;  // 10th grade - generic for high school
-                    school_id_ptr[ip] = SchoolCensusIDType::high_1;
-                    work_nborhood_ptr[ip] = 3; // assuming the high school is located in Neighbordhood 3
-                    workgroup_ptr[ip] = 1;
+                    if (m_add_teachers){
+                        school_grade_ptr[ip] = 12;  // 10th grade - generic for high school
+                        school_id_ptr[ip] = SchoolCensusIDType::high_1;
+                        work_nborhood_ptr[ip] = 3; // assuming the high school is located in Neighbordhood 3
+                        workgroup_ptr[ip] = 1;
+                    }
                     high_teachers_ptr[comm]--;
                 } else if (choice < high_teachers + middle_teachers) {
-                    school_grade_ptr[ip] = 9;  // 7th grade - generic for middle
-                    school_id_ptr[ip] = SchoolCensusIDType::middle_2;
-                    work_nborhood_ptr[ip] = 1; // assuming the middle school is located in Neighbordhood 2
-                    workgroup_ptr[ip] = 2;
+                    if (m_add_teachers){
+                        school_grade_ptr[ip] = 9;  // 7th grade - generic for middle
+                        school_id_ptr[ip] = SchoolCensusIDType::middle_2;
+                        work_nborhood_ptr[ip] = 1; // assuming the middle school is located in Neighbordhood 2
+                        workgroup_ptr[ip] = 2;
+                    }
                     middle_teachers_ptr[comm]--;
                 } else if (choice < high_teachers + middle_teachers + elem3_teachers) {
-                    school_grade_ptr[ip] = 5;  // 3rd grade - generic for elementary
-                    school_id_ptr[ip] = SchoolCensusIDType::elem_3;
-                    work_nborhood_ptr[ip] = 0; // assuming the first elementary school is located in Neighbordhood 1
-                    workgroup_ptr[ip] = 3;
+                    if (m_add_teachers){
+                        school_grade_ptr[ip] = 5;  // 3rd grade - generic for elementary
+                        school_id_ptr[ip] = SchoolCensusIDType::elem_3;
+                        work_nborhood_ptr[ip] = 0; // assuming the first elementary school is located in Neighbordhood 1
+                        workgroup_ptr[ip] = 3;
+                    }
                     elem3_teachers_ptr[comm]--;
                 } else if (choice < high_teachers + middle_teachers + elem3_teachers + elem4_teachers) {
-                    school_grade_ptr[ip] = 5;  // 3rd grade - generic for elementary
-                    school_id_ptr[ip] = SchoolCensusIDType::elem_4;
-                    work_nborhood_ptr[ip] = 2; // assuming the first elementary school is located in Neighbordhood 3
-                    workgroup_ptr[ip] = 4;
+                    if (m_add_teachers){
+                        school_grade_ptr[ip] = 5;  // 3rd grade - generic for elementary
+                        school_id_ptr[ip] = SchoolCensusIDType::elem_4;
+                        work_nborhood_ptr[ip] = 2; // assuming the first elementary school is located in Neighbordhood 3
+                        workgroup_ptr[ip] = 4;
+                    }
                     elem4_teachers_ptr[comm]--;
                 } else {
-                    school_grade_ptr[ip] = 0; // generic for daycare
-                    work_nborhood_ptr[ip] = Random_int(4); // randomly select nborhood
-                    school_id_ptr[ip] = SchoolCensusIDType::daycare_5 + work_nborhood_ptr[ip];
-                    workgroup_ptr[ip] = 5;
+                    if (m_add_teachers){
+                        school_grade_ptr[ip] = 0; // generic for daycare
+                        work_nborhood_ptr[ip] = nborhood_ptr[ip]; //Random_int(4); // randomly select nborhood
+                        school_id_ptr[ip] = SchoolCensusIDType::daycare_5 + work_nborhood_ptr[ip];
+                        workgroup_ptr[ip] = 5;
+                    }
                     daycare_teachers_ptr[comm]--;
                 }
             }

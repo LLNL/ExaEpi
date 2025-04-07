@@ -264,21 +264,119 @@ void runAgent ()
     }
 #endif
 
-    std::vector<int>  step_of_peak(params.num_diseases, 0);
+    std::vector<int> step_of_peak(params.num_diseases, 0);
     std::vector<Long> num_infected_peak(params.num_diseases, 0);
     std::vector<Long> cumulative_deaths(params.num_diseases, 0);
+
+    // Store cumulative deaths workers, teachers, non workers
+    std::vector<Long> num_infected_peak_work(params.num_diseases, 0);
+    std::vector<Long> cumulative_deaths_work(params.num_diseases, 0);
+    std::vector<Long> num_infected_peak_teachers(params.num_diseases, 0);
+    std::vector<Long> cumulative_deaths_teachers(params.num_diseases, 0);
+    std::vector<Long> num_infected_peak_nonwork(params.num_diseases, 0);
+    std::vector<Long> cumulative_deaths_nonwork(params.num_diseases, 0);
+
+    std::vector<Long> num_infected_peak_student(params.num_diseases, 0);
+    std::vector<Long> cumulative_deaths_student(params.num_diseases, 0);
+
+    // Store cumulative deaths per age group
+    std::vector<std::array<Long, AgeGroups::total>> num_infected_peak_ag(params.num_diseases, {0});
+    std::vector<std::array<Long, AgeGroups::total>> cumulative_deaths_ag(params.num_diseases, {0});
+
+    // Store cumulative deaths student per school type
+    std::vector<std::array<Long, SchoolType::total>> num_infected_peak_stud_school(params.num_diseases, {0});
+    std::vector<std::array<Long, SchoolType::total>> cumulative_deaths_stud_school(params.num_diseases, {0});
+
+    // Store cumulative deaths teachers per school type
+    std::vector<std::array<Long, SchoolType::total>> num_infected_peak_teacher_school(params.num_diseases, {0});
+    std::vector<std::array<Long, SchoolType::total>> cumulative_deaths_teacher_school(params.num_diseases, {0});
+
     for (int d = 0; d < params.num_diseases; d++) {
         auto counts = pc.getTotals(d);
+        // Update peak infections
         if (counts[1] > num_infected_peak[d]) {
             num_infected_peak[d] = counts[1];
             step_of_peak[d] = 0;
         }
         cumulative_deaths[d] = counts[4];
+
+        auto counts_work = pc.getTotalsWorkers(d);
+        if (counts_work[1] > num_infected_peak_work[d]) {
+            num_infected_peak_work[d] = counts_work[1];
+        }
+        cumulative_deaths_work[d] = counts_work[4];
+
+        auto counts_teach = pc.getTotalsTeachers(d);
+        if (counts_teach[1] > num_infected_peak_teachers[d]) {
+            num_infected_peak_teachers[d] = counts_teach[1];
+        }
+        cumulative_deaths_teachers[d] = counts_teach[4];
+
+        auto counts_nonwork = pc.getTotalsNonWorkers(d);
+        if (counts_nonwork[1] > num_infected_peak_nonwork[d]) {
+            num_infected_peak_nonwork[d] = counts_nonwork[1];
+        }
+        cumulative_deaths_nonwork[d] = counts_nonwork[4];
+
+        auto counts_student = pc.getTotalsStudent(d);
+        if (counts_student[1] > num_infected_peak_student[d]) {
+            num_infected_peak_student[d] = counts_student[1];
+        }
+        cumulative_deaths_student[d] = counts_student[4];
+
+        // Loop over all age groups
+        for (int ag = 0; ag < AgeGroups::total; ag++) {
+            auto counts_ag = pc.getTotalsAgeGroup(d, ag);
+            if (counts_ag[1] > num_infected_peak_ag[d][ag]) {
+                num_infected_peak_ag[d][ag] = counts_ag[1];
+            }
+            cumulative_deaths_ag[d][ag] = counts_ag[4];
+        }
+        // Loop over all school types
+        for (int sch = 0; sch < SchoolType::total; sch++) {
+            auto counts_std_sch = pc.getTotalsSchoolStudent(d, sch);
+            if (counts_std_sch[1] > num_infected_peak_stud_school[d][sch]) {
+                num_infected_peak_stud_school[d][sch] = counts_std_sch[1];
+            }
+            cumulative_deaths_stud_school[d][sch] = counts_std_sch[4];
+        }
+        for (int sch = 1; sch < SchoolType::total; sch++) {
+            auto count_teach_sch = pc.getTotalsTeachersPerSchool(d,sch);
+            if (count_teach_sch[1] > num_infected_peak_teacher_school[d][sch]) {
+                num_infected_peak_teacher_school[d][sch] = count_teach_sch[1];
+            }
+            cumulative_deaths_teacher_school[d][sch] = count_teach_sch[4];
+        }
     }
+
 
     amrex::Real cur_time = 0;
 
     Vector<Long> num_infected(params.num_diseases, 0);
+    Vector<Long> cum_num_infected(params.num_diseases, 0);
+
+    // Store num infected and cumulative infections
+    Vector<Long> num_infected_work(params.num_diseases, 0);
+    Vector<Long> cum_num_infected_work(params.num_diseases, 0);
+    Vector<Long> num_infected_teachers(params.num_diseases, 0);
+    Vector<Long> cum_num_infected_teachers(params.num_diseases, 0);
+    Vector<Long> num_infected_nonwork(params.num_diseases, 0);
+    Vector<Long> cum_num_infected_nowork(params.num_diseases, 0);
+
+    Vector<Long> num_infected_student(params.num_diseases, 0);
+    Vector<Long> cum_num_infected_student(params.num_diseases, 0);
+
+    // Store num infected and cumulative infections per age group
+    std::vector<std::array<Long, AgeGroups::total>> cum_num_infected_ag(params.num_diseases, {0});
+    std::vector<std::array<Long, AgeGroups::total>> num_infected_ag(params.num_diseases, {0});
+
+    // Store num infected and cumulative infections student per school type
+    std::vector<std::array<Long, SchoolType::total>> cum_num_infected_stud_sch(params.num_diseases, {0});
+    std::vector<std::array<Long, SchoolType::total>> num_infected_stud_sch(params.num_diseases, {0});
+
+    // Store num infected and cumulative infections teachers per school type
+    std::vector<std::array<Long, SchoolType::total>> cum_num_infected_teach_sch(params.num_diseases, {0});
+    std::vector<std::array<Long, SchoolType::total>> num_infected_teach_sch(params.num_diseases, {0});
 
     amrex::ParmParse::QueryUnusedInputs();
 
@@ -301,12 +399,79 @@ void runAgent ()
 
             for (int d = 0; d < params.num_diseases; d++) {
                 auto counts = pc.getTotals(d);
+
+                // Update peak infections
                 if (counts[1] > num_infected_peak[d]) {
                     num_infected_peak[d] = counts[1];
                     step_of_peak[d] = i;
                 }
                 cumulative_deaths[d] = counts[4];
                 num_infected[d] = counts[1];
+                cum_num_infected[d] += counts[1];
+
+                auto counts_work = pc.getTotalsWorkers(d);
+                if (counts_work[1] > num_infected_peak_work[d]) {
+                    num_infected_peak_work[d] = counts_work[1];
+                }
+                cumulative_deaths_work[d] = counts_work[4];
+                num_infected_work[d] = counts_work[1];
+                cum_num_infected_work[d] += counts_work[1];
+
+                auto counts_teach = pc.getTotalsTeachers(d);
+                if (counts_teach[1] > num_infected_peak_teachers[d]) {
+                    num_infected_peak_teachers[d] = counts_teach[1];
+                }
+                cumulative_deaths_teachers[d] = counts_teach[4];
+                num_infected_teachers[d] = counts_teach[1];
+                cum_num_infected_teachers[d] += counts_teach[1];
+
+                auto counts_nonwork = pc.getTotalsNonWorkers(d);
+                if (counts_nonwork[1] > num_infected_peak_nonwork[d]) {
+                    num_infected_peak_nonwork[d] = counts_nonwork[1];
+                }
+                cumulative_deaths_nonwork[d] = counts_nonwork[4];
+                num_infected_nonwork[d] = counts_nonwork[1];
+                cum_num_infected_nowork[d] += counts_nonwork[1];
+
+                auto counts_student = pc.getTotalsStudent(d);
+                if (counts_student[1] > num_infected_peak_student[d]) {
+                    num_infected_peak_student[d] = counts_student[1];
+                }
+                cumulative_deaths_student[d] = counts_student[4];
+                num_infected_student[d] = counts_student[1];
+                cum_num_infected_student[d] += counts_student[1];
+
+                // Loop over all age groups
+                for (int ag = 0; ag < AgeGroups::total; ag++) {
+                    auto counts_ag = pc.getTotalsAgeGroup(d, ag);
+                    if (counts_ag[1] > num_infected_peak_ag[d][ag]) {
+                        num_infected_peak_ag[d][ag] = counts_ag[1];
+                    }
+                    cumulative_deaths_ag[d][ag] = counts_ag[4];
+                    num_infected_ag[d][ag] = counts_ag[1];
+                    cum_num_infected_ag[d][ag] += counts_ag[1];
+
+                }
+                //Loop over school type
+                for (int sch = 0; sch < SchoolType::total; sch++) {
+                    auto counts_stud_sch = pc.getTotalsSchoolStudent(d, sch);
+                    if (counts_stud_sch[1] > num_infected_peak_stud_school[d][sch]) {
+                        num_infected_peak_stud_school[d][sch] = counts_stud_sch[1];
+                    }
+                    cumulative_deaths_stud_school[d][sch] = counts_stud_sch[4];
+                    num_infected_stud_sch[d][sch] = counts_stud_sch[1];
+                    cum_num_infected_stud_sch[d][sch] += counts_stud_sch[1];
+                }
+                // Loop over school type
+                for (int sch = 1; sch < SchoolType::total; sch++) {
+                    auto count_teach_sch = pc.getTotalsTeachersPerSchool(d,sch);
+                    if (count_teach_sch[1] > num_infected_peak_teacher_school[d][sch]) {
+                        num_infected_peak_teacher_school[d][sch] = count_teach_sch[1];
+                    }
+                    cumulative_deaths_teacher_school[d][sch] = count_teach_sch[4];
+                    num_infected_teach_sch[d][sch] = count_teach_sch[1];
+                    cum_num_infected_teach_sch[d][sch] += count_teach_sch[1];
+                }
 
                 Real mmc[4] = {0, 0, 0, 0};
 #ifdef AMREX_USE_GPU
@@ -434,10 +599,19 @@ void runAgent ()
             Print() << "[Day " << cur_time <<  " " << std::fixed << std::setprecision(1) << elapsed_time.count() << "s] infected: ";
             for (int d = 0; d < params.num_diseases; d++) {
                 if (d > 0) Print() << ", ";
+                int total_here = 0;
                 Print() << params.disease_names[d] << " " << num_infected[d];
+                std::array<std::string, AgeGroups::total> age_group_names = {
+                    "Under 5", "5-17", "18-29", "30-49", "50-64", "Over 65"};
+                for (int ag = 0; ag < AgeGroups::total; ag++){
+                    total_here += num_infected_ag[d][ag];
+                    // Print() <<",  " << age_group_names[ag] << ": " << num_infected_ag[d][ag] ;
+                }
+                // Print() << "; total_here: " << total_here;
             }
             // the cumulative deaths are not tracked separately for each disease
             Print() << "; deaths: " << cumulative_deaths[0] << "\n";
+            // pc.printStudentTeacherCountsInfectedDeaths(0);
 
             cur_time += 1.0_rt; // time step is one day
         }
@@ -448,7 +622,101 @@ void runAgent ()
         amrex::Print() << "Peak number of infected: " << num_infected_peak[0] << "\n";
         amrex::Print() << "Day of peak: " << step_of_peak[0] << "\n";
         amrex::Print() << "Cumulative deaths: " << cumulative_deaths[0] << "\n";
+
         amrex::Print() << "\n \n";
+        pc.printWorkerCounts();
+        amrex::Print() << "\n \n";
+
+        /* Print Worker/Teachers/Non Workers -- Cumulative Death and Infections*/
+        amrex::Print() << "Cumulative deaths non workers: " << cumulative_deaths_nonwork[0] << "\n";
+        amrex::Print() << "Cumulative deaths teachers: " << cumulative_deaths_teachers[0] << "\n";
+        amrex::Print() << "Cumulative deaths workers: " << cumulative_deaths_work[0] << "\n";
+        amrex::Print() << "Peak infected non workers: " << num_infected_peak_nonwork[0] << "\n";
+        amrex::Print() << "Peak infected teachers: " << num_infected_peak_teachers[0] << "\n";
+        amrex::Print() << "Peak infected workers: " << num_infected_peak_work[0] << "\n";
+        // amrex::Print() << "Cumulative infected non workers: " << cum_num_infected_nowork[0] << "\n";
+        // amrex::Print() << "Cumulative infected teachers: " << cum_num_infected_teachers[0] << "\n";
+        // amrex::Print() << "Cumulative infected workers: " << cum_num_infected_work[0] << "\n";
+
+        /* Print All Agents -- Per Age Group -- Cumulative Death and Infections*/
+        amrex::Print() << "Cumulative deaths per age group:\n";
+        std::array<std::string, AgeGroups::total> age_group_names = {
+            "Under 5", "5-17", "18-29", "30-49", "50-64", "Over 65"
+        };
+        int total_ag_death = 0;
+        int total_stddd_death = 0;
+        for (int i = 0; i < AgeGroups::total; i++) {
+            amrex::Print() << "  " << age_group_names[i] << ": " << cumulative_deaths_ag[0][i] << "\n";
+            total_ag_death += cumulative_deaths_ag[0][i];
+            if (i<2){total_stddd_death+= cumulative_deaths_ag[0][i];}
+        }
+        amrex::Print() <<"  Total(manual): " << total_ag_death << "  Total: " << cumulative_deaths[0]<< "\n \n";
+
+        // amrex::Print() << "Cumulative infected per age group:\n";
+        amrex::Print() << "Peak infected per age group:\n";
+        int total_ag_infec = 0;
+        int total_stddd_infec = 0;
+        for (int i = 0; i < AgeGroups::total; i++) {
+            amrex::Print() << "  " << age_group_names[i] << ": " << num_infected_peak_ag[0][i] << "\n";
+            total_ag_infec += num_infected_peak_ag[0][i];
+            if (i<2){total_stddd_infec+=num_infected_peak_ag[0][i];}
+            // amrex::Print() << "  " << age_group_names[i] << ": " << cum_num_infected_ag[0][i] << "\n";
+            // total_ag_infec += cum_num_infected_ag[0][i];
+            // if (i<2){total_stddd_infec+=cum_num_infected_ag[0][i];}
+        }
+        amrex::Print() << "  Total(manual): " << total_ag_infec << "  Total: " << num_infected_peak[0]<< "\n \n";
+        // amrex::Print() << "  Total(manual): " << total_ag_infec << "  Total: " << cum_num_infected[0]<< "\n \n";
+
+
+         /* Print All Students -- Per School type -- Cumulative Death and Infections*/
+        amrex::Print() << "Cumulative deaths students per school type:\n";
+        std::array<std::string, SchoolType::total> school_type_names = {
+            "none", "college", "high", "middle", "elem", "daycare"
+        };
+        // std::array<std::string, SchoolType::total> school_type_names = {
+        //     "none", "high_1", "middle_2", "elem_3", "elem_4", "daycare"
+        // };
+        int total_std_sch_death = 0;
+        for (int i = 0; i < SchoolType::total; i++) {
+            amrex::Print() << "  " << school_type_names[i] << ": " << cumulative_deaths_stud_school[0][i] << "\n";
+            total_std_sch_death += cumulative_deaths_stud_school[0][i];
+        }
+        amrex::Print() << "  Total(manual): " << total_std_sch_death <<"  Total(from AG): " << total_stddd_death << "  Total function: " << cumulative_deaths_student[0]<< "\n \n";
+
+        amrex::Print() << "Peak infected per school type:\n";
+        // amrex::Print() << "Cumulative infected per school type:\n";
+        int total_std_sch_infec = 0;
+        for (int i = 0; i < SchoolType::total; i++) {
+            amrex::Print() << "  " << school_type_names[i] << ": " << num_infected_peak_stud_school[0][i] << "\n";
+            total_std_sch_infec += num_infected_peak_stud_school[0][i];
+            // amrex::Print() << "  " << school_type_names[i] << ": " << cum_num_infected_stud_sch[0][i] << "\n";
+            // total_std_sch_infec += cum_num_infected_stud_sch[0][i];
+        }
+        amrex::Print() << "  Total(manual): " << total_std_sch_infec <<"  Total(from AG): " << total_stddd_infec << "  Total: " << num_infected_peak_student[0]<< "\n \n";
+        // amrex::Print() << "  Total(manual): " << total_std_sch_infec <<"  Total(from AG): " << total_stddd_infec << "  Total: " << cum_num_infected_student[0]<< "\n \n";
+
+        /* Print All Teachers -- Per School Type -- Cumulative Death and Infections */
+        amrex::Print() << "Cumulative deaths teachers per school type:\n";
+        int total_teac_sch_death = 0;
+        for (int i = 1; i < SchoolType::total; i++) {
+            amrex::Print() << "  " << school_type_names[i] << ": " << cumulative_deaths_teacher_school[0][i] << "\n";
+            total_teac_sch_death += cumulative_deaths_teacher_school[0][i];
+        }
+        amrex::Print() <<  "  Total(manual): " << total_teac_sch_death << "  Total: " << cumulative_deaths_teachers[0] << "\n \n";
+
+        amrex::Print() << "Peak infected teacher per school type:\n";
+        // amrex::Print() << "Cumulative infected teacher per school type:\n";
+        int total_teac_sch_infec = 0;
+        for (int i = 1; i < SchoolType::total; i++) {
+            amrex::Print() << "  " << school_type_names[i] << ": " << num_infected_peak_teacher_school[0][i] << "\n";
+            total_teac_sch_infec += num_infected_peak_teacher_school[0][i];
+            // amrex::Print() << "  " << school_type_names[i] << ": " << cum_num_infected_teach_sch[0][i] << "\n";
+            // total_teac_sch_infec += cum_num_infected_teach_sch[0][i];
+        }
+        amrex::Print() <<  "  Total(manual): " << total_teac_sch_infec << "  Total: " << num_infected_peak_teachers[0] << "\n \n";
+
+        amrex::Print() << "\n \n";
+
     } else {
         amrex::Print() << "\n \n";
         for (int d = 0; d < params.num_diseases; d++) {
@@ -456,9 +724,20 @@ void runAgent ()
             amrex::Print() << "    Peak number of infected: " << num_infected_peak[d] << "\n";
             amrex::Print() << "    Day of peak: " << step_of_peak[d] << "\n";
             amrex::Print() << "    Cumulative deaths: " << cumulative_deaths[d] << "\n";
+
+            // Print cumulative infected per age group
+            amrex::Print() << "    Cumulative infected per age group:\n";
+            std::array<std::string, AgeGroups::total> age_group_names = {
+                "Under 5", "5-17", "18-29", "30-49", "50-64", "Over 65"
+            };
+
+            for (int i = 0; i < AgeGroups::total; i++) {
+                amrex::Print() << "        " << age_group_names[i] << ": " << cum_num_infected_ag[d][i] << "\n";
+            }
         }
         amrex::Print() << "\n \n";
     }
+
 
     if (params.plot_int > 0) {
         ExaEpi::IO::writePlotFile(pc, censusData, params.num_diseases, params.disease_names, cur_time, params.nsteps);
